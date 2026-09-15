@@ -43,7 +43,7 @@ define('DB_USER', getenv('DB_USER') ?: 'root');
 define('DB_PASS', getenv('DB_PASS') ?: '');
 define('DB_CHAR', getenv('DB_CHAR') ?: 'utf8mb4');
 
-define('TOTP_ENCRYPTION_KEY', getenv('TOTP_ENCRYPTION_KEY') ?: '');
+define('TOTP_ENCRYPTION_KEY', getenv('TOTP_ENCRYPTION_KEY') ?: 'mkpay_aes256_secret_key_default_protect_v1');
 define('APP_ENV', getenv('APP_ENV') ?: 'production');
 
 // Timezone

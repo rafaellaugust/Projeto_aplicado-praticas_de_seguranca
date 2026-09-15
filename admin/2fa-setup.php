@@ -20,13 +20,13 @@ $admin_id = $_SESSION['pending_admin_id'];
 $admin_nome = $_SESSION['pending_admin_nome'] ?? 'Admin';
 $admin_email = $_SESSION['pending_admin_email'] ?? '';
 
-if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+if (isset($_GET['reset']) || empty($_SESSION['totp_setup_secret'])) {
     $secret = Security::generateTotpSecret();
     $_SESSION['totp_setup_secret'] = $secret;
     $backupCodes = Security::generateBackupCodes();
     $_SESSION['totp_setup_backup'] = $backupCodes;
 } else {
-    $secret = $_SESSION['totp_setup_secret'] ?? '';
+    $secret = $_SESSION['totp_setup_secret'];
     $backupCodes = $_SESSION['totp_setup_backup'] ?? [];
 }
 
@@ -36,30 +36,37 @@ $totpAuthUrl = Security::getTotpAuthUrl($admin_email, $secret, 'MikroTik Pay');
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $csrfToken = $_POST['csrf_token'] ?? '';
     if (!Security::validateCsrfToken($csrfToken)) {
-        $error = 'Token de segurança inválido. Tente novamente.';
+        $error = 'Token de segurança inválido. Por favor, tente novamente.';
     } else {
-        $code = $_POST['totp_code'] ?? '';
-        if (Security::verifyTotpCode($secret, $code)) {
-            $encryptedSecret = Security::encryptSecret($secret);
-            $backupCodesJson = json_encode($backupCodes);
-            
-            $db = Database::getInstance();
-            $stmt = $db->prepare('UPDATE administradores SET totp_secret = ?, totp_enabled = 1, backup_codes = ? WHERE id = ?');
-            $stmt->execute([$encryptedSecret, $backupCodesJson, $admin_id]);
-            
-            $_SESSION['admin_id'] = $admin_id;
-            $_SESSION['admin_nome'] = $admin_nome;
-            $_SESSION['admin_email'] = $admin_email;
-            unset($_SESSION['pending_admin_id'], $_SESSION['pending_admin_nome'], $_SESSION['pending_admin_email']);
-            unset($_SESSION['totp_setup_secret'], $_SESSION['totp_setup_backup']);
-            
-            SessionGuard::registerActiveSession($admin_id, 'admin');
-            Database::log('auth', "2FA configurado para admin: {$admin_nome}", ['ip' => $_SERVER['REMOTE_ADDR'] ?? '']);
-            
-            header('Location: index.php');
-            exit;
+        $code = preg_replace('/[^0-9]/', '', $_POST['totp_code'] ?? '');
+        if (strlen($code) !== 6) {
+            $error = 'Por favor, insira o código com exatamente 6 números.';
+        } elseif (Security::verifyTotpCode($secret, $code, 2)) {
+            try {
+                $encryptedSecret = Security::encryptSecret($secret);
+                $backupCodesJson = json_encode($backupCodes);
+                
+                $db = Database::getInstance();
+                $stmt = $db->prepare('UPDATE administradores SET totp_secret = ?, totp_enabled = 1, backup_codes = ? WHERE id = ?');
+                $stmt->execute([$encryptedSecret, $backupCodesJson, $admin_id]);
+                
+                $_SESSION['admin_id'] = $admin_id;
+                $_SESSION['admin_nome'] = $admin_nome;
+                $_SESSION['admin_email'] = $admin_email;
+                unset($_SESSION['pending_admin_id'], $_SESSION['pending_admin_nome'], $_SESSION['pending_admin_email']);
+                unset($_SESSION['totp_setup_secret'], $_SESSION['totp_setup_backup']);
+                
+                SessionGuard::registerActiveSession($admin_id, 'admin');
+                Database::log('auth', "2FA configurado com sucesso para admin: {$admin_nome}", ['ip' => $_SERVER['REMOTE_ADDR'] ?? '']);
+                
+                header('Location: index.php');
+                exit;
+            } catch (\Throwable $e) {
+                $error = 'Erro ao salvar configuração no banco: ' . $e->getMessage();
+                Database::log('auth_erro', "Falha ao gravar 2FA para admin ID {$admin_id}: " . $e->getMessage());
+            }
         } else {
-            $error = 'Código de verificação incorreto. Tente novamente.';
+            $error = 'Código de verificação incorreto ou expirado. Verifique se o horário do celular está correto e tente novamente.';
         }
     }
 }
@@ -100,7 +107,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 </noscript>
                             </div>
                             <p class="mb-1 text-muted small">Ou digite o código manualmente no app:</p>
-                            <code class="fs-5 text-warning user-select-all"><?= htmlspecialchars($secret) ?></code>
+                            <code class="fs-5 text-warning user-select-all d-block mb-2"><?= htmlspecialchars($secret) ?></code>
+                            <a href="2fa-setup.php?reset=1" class="text-info small text-decoration-none" onclick="return confirm('Deseja gerar uma nova chave? Você precisará escanear o novo QR Code no app.');">
+                                <i class="fas fa-arrows-rotate me-1"></i> Gerar novo QR Code / Reiniciar
+                            </a>
                         </div>
 
                         <div class="alert alert-warning mb-4">
@@ -114,11 +124,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         </div>
 
                         <form method="POST" action="2fa-setup.php">
-                            <input type="hidden" name="csrf_token" value="<?= Security::generateCsrfToken() ?>">
+                            <?= Security::generateCsrfToken() ?>
                             
                             <div class="mb-4">
                                 <label for="totp_code" class="form-label text-center d-block">Insira o código de 6 dígitos do app</label>
-                                <input type="text" class="form-control bg-dark text-light border-0 text-center fs-4 tracking-widest" id="totp_code" name="totp_code" maxlength="6" pattern="[0-9]{6}" required autofocus autocomplete="off">
+                                <input type="text" class="form-control bg-dark text-light border-0 text-center fs-4 tracking-widest" id="totp_code" name="totp_code" maxlength="6" pattern="[0-9]{6}" required autofocus autocomplete="off" placeholder="••••••">
                             </div>
                             
                             <button type="submit" class="btn btn-primary w-100 py-2 fw-bold">Verificar e Concluir</button>

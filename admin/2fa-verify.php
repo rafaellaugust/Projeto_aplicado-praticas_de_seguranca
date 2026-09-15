@@ -66,18 +66,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
         if ($authMode === 'email') {
             // Validação por E-mail
-            if (Security::verifyEmailOtp($code)) {
+            $emailCode = preg_replace('/[^0-9]/', '', $code);
+            if (Security::verifyEmailOtp($emailCode)) {
                 $authenticated = true;
             } else {
                 $error = 'Código de e-mail inválido ou expirado (válido por 10 minutos).';
             }
         } elseif ($authMode === 'backup') {
             // Validação por Código de Recuperação
+            $backupCode = trim($code);
             $backupCodes = json_decode($admin['backup_codes'] ?? '[]', true);
-            if (is_array($backupCodes) && in_array($code, $backupCodes)) {
+            if (is_array($backupCodes) && in_array($backupCode, $backupCodes)) {
                 $authenticated = true;
                 // Remove o código de backup utilizado
-                $backupCodes = array_diff($backupCodes, [$code]);
+                $backupCodes = array_diff($backupCodes, [$backupCode]);
                 $db->prepare('UPDATE administradores SET backup_codes = ? WHERE id = ?')
                    ->execute([json_encode(array_values($backupCodes)), $admin_id]);
                 Database::log('auth', "Código de backup 2FA utilizado por admin ID: {$admin_id}");
@@ -86,11 +88,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             }
         } else {
             // Validação padrão via Google Authenticator (TOTP RFC 6238)
+            $totpCode = preg_replace('/[^0-9]/', '', $code);
             $decryptedSecret = Security::decryptSecret($admin['totp_secret'] ?? '');
-            if (!empty($decryptedSecret) && Security::verifyTotpCode($decryptedSecret, $code)) {
+            if (!empty($decryptedSecret) && Security::verifyTotpCode($decryptedSecret, $totpCode, 2)) {
                 $authenticated = true;
             } else {
-                $error = 'Código do autenticador incorreto. Tente novamente.';
+                $error = 'Código do autenticador incorreto ou expirado. Verifique o horário do celular e tente novamente.';
             }
         }
 
