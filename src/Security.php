@@ -114,7 +114,7 @@ class Security
      * @param string|null $identifier Email ou nome de usuário
      * @param string|null $userType Tipo de usuário
      */
-    public static function recordAttempt(string $ip, string $action, bool $success, ?string $identifier = null, ?string $userType = null): void
+    public static function recordAttempt(string $ip, string $action = 'login', bool $success = false, ?string $identifier = null, ?string $userType = null): void
     {
         try {
             $db = Database::getInstance();

@@ -68,7 +68,7 @@ if (Security::isIpBlocked($ip)) {
                 exit;
             }
         } else {
-            Security::recordAttempt($ip);
+            Security::recordAttempt($ip, 'login', false, $email, 'admin');
             $error = 'Credenciais inválidas.';
             Database::log('auth', "Falha de login admin: {$email}", ['ip' => $ip]);
         }

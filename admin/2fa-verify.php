@@ -121,7 +121,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             header('Location: index.php');
             exit;
         } else {
-            Security::recordAttempt($ip);
+            Security::recordAttempt($ip, '2fa', false, $admin['email'], 'admin');
             Database::log('auth_falha', "Tentativa 2FA falhou para {$admin['nome']} (modo: {$authMode})", ['ip' => $ip]);
         }
     }

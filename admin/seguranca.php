@@ -64,8 +64,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 try {
     $tentativas_24h = $db->query("SELECT COUNT(*) FROM login_attempts WHERE created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)")->fetchColumn() ?: 0;
     $falhas_24h = $db->query("SELECT COUNT(*) FROM login_attempts WHERE success = 0 AND created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)")->fetchColumn() ?: 0;
-    $ips_bloqueados_count = $db->query("SELECT COUNT(*) FROM blocked_ips WHERE expires_at IS NULL OR expires_at > NOW()")->fetchColumn() ?: 0;
-    $dispositivos_count = $db->query("SELECT COUNT(*) FROM trusted_devices WHERE expires_at > NOW()")->fetchColumn() ?: 0;
+    $ips_bloqueados_count = $db->query("SELECT COUNT(*) FROM blocked_ips WHERE blocked_until IS NULL OR blocked_until > NOW()")->fetchColumn() ?: 0;
+    $dispositivos_count = $db->query("SELECT COUNT(*) FROM trusted_devices WHERE trusted_until > NOW()")->fetchColumn() ?: 0;
 } catch (Exception $e) { $tentativas_24h = $falhas_24h = $ips_bloqueados_count = $dispositivos_count = 0; }
 
 try {
@@ -73,7 +73,7 @@ try {
 } catch (Exception $e) { $login_attempts = []; }
 
 try {
-    $blocked_ips = $db->query("SELECT * FROM blocked_ips WHERE expires_at IS NULL OR expires_at > NOW() ORDER BY created_at DESC")->fetchAll();
+    $blocked_ips = $db->query("SELECT * FROM blocked_ips WHERE blocked_until IS NULL OR blocked_until > NOW() ORDER BY created_at DESC")->fetchAll();
 } catch (Exception $e) { $blocked_ips = []; }
 
 try {
@@ -81,7 +81,7 @@ try {
         SELECT t.*, c.nome as usuario_nome 
         FROM trusted_devices t 
         LEFT JOIN clientes c ON t.user_id = c.id AND t.user_type = 'cliente' 
-        WHERE t.expires_at > NOW() 
+        WHERE t.trusted_until > NOW() 
         ORDER BY t.created_at DESC
     ")->fetchAll();
 } catch (Exception $e) { $trusted_devices = []; }
@@ -195,7 +195,7 @@ $s = array_merge([
                             <tr>
                                 <td><?= sanitize($ipb['ip_address']) ?></td>
                                 <td><small class="text-secondary"><?= sanitize($ipb['reason']) ?></small></td>
-                                <td><small><?= $ipb['expires_at'] ? date('d/m/Y H:i', strtotime($ipb['expires_at'])) : 'Permanente' ?></small></td>
+                                <td><small><?= $ipb['blocked_until'] ? date('d/m/Y H:i', strtotime($ipb['blocked_until'])) : 'Permanente' ?></small></td>
                                 <td>
                                     <form method="POST" class="d-inline">
                                         <?= Security::generateCsrfToken() ?>
@@ -233,10 +233,10 @@ $s = array_merge([
                             <tr>
                                 <td><?= sanitize($dev['usuario_nome'] ?: 'Admin') ?> (<?= sanitize($dev['user_type']) ?>)</td>
                                 <td>
-                                    <small><?= sanitize($dev['user_agent']) ?></small><br>
+                                    <small><?= sanitize($dev['device_name'] ?? $dev['device_hash']) ?></small><br>
                                     <small class="text-secondary">IP: <?= sanitize($dev['ip_address']) ?></small>
                                 </td>
-                                <td><small><?= date('d/m/Y', strtotime($dev['expires_at'])) ?></small></td>
+                                <td><small><?= date('d/m/Y', strtotime($dev['trusted_until'])) ?></small></td>
                                 <td>
                                     <form method="POST" class="d-inline">
                                         <?= Security::generateCsrfToken() ?>
