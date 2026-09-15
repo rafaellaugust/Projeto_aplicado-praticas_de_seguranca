@@ -31,6 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 }
 
 $qrCodeUrl = Security::getTotpQrCodeUrl($admin_email, $secret, 'MikroTik Pay');
+$totpAuthUrl = Security::getTotpAuthUrl($admin_email, $secret, 'MikroTik Pay');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $csrfToken = $_POST['csrf_token'] ?? '';
@@ -92,11 +93,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <?php endif; ?>
 
                         <div class="text-center mb-4">
-                            <div class="bg-white p-3 d-inline-block rounded mb-3">
-                                <img src="<?= htmlspecialchars($qrCodeUrl) ?>" alt="QR Code 2FA">
+                            <div class="bg-white p-3 d-inline-block rounded mb-3 shadow-sm" style="min-width: 216px; min-height: 216px;">
+                                <div id="qrcode2fa" class="d-flex justify-content-center"></div>
+                                <noscript>
+                                    <img src="<?= htmlspecialchars($qrCodeUrl) ?>" alt="QR Code 2FA" width="200" height="200">
+                                </noscript>
                             </div>
-                            <p class="mb-1">Ou digite o código manualmente:</p>
-                            <code class="fs-5 text-warning"><?= htmlspecialchars($secret) ?></code>
+                            <p class="mb-1 text-muted small">Ou digite o código manualmente no app:</p>
+                            <code class="fs-5 text-warning user-select-all"><?= htmlspecialchars($secret) ?></code>
                         </div>
 
                         <div class="alert alert-warning mb-4">
@@ -124,5 +128,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
         </div>
     </div>
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            var container = document.getElementById('qrcode2fa');
+            var otpUri = <?= json_encode($totpAuthUrl) ?>;
+            var fallbackUrl = <?= json_encode($qrCodeUrl) ?>;
+            
+            try {
+                if (typeof QRCode !== 'undefined') {
+                    new QRCode(container, {
+                        text: otpUri,
+                        width: 200,
+                        height: 200,
+                        colorDark: "#000000",
+                        colorLight: "#ffffff",
+                        correctLevel: QRCode.CorrectLevel.M
+                    });
+                } else {
+                    throw new Error('QRCode JS not loaded');
+                }
+            } catch (e) {
+                // Fallback para imagem externa caso o script não carregue
+                container.innerHTML = '<img src="' + fallbackUrl + '" alt="QR Code 2FA" width="200" height="200">';
+            }
+        });
+    </script>
 </body>
 </html>

@@ -369,7 +369,17 @@ class Security
     }
 
     /**
-     * Retorna a URL do Google Charts para gerar o QR Code do TOTP.
+     * Retorna a URI otpauth:// padrão RFC 6238 para aplicativos TOTP.
+     */
+    public static function getTotpAuthUrl(string $email, string $secret, string $issuer = 'MikroTik Pay'): string
+    {
+        $issuerEncoded = rawurlencode($issuer);
+        $emailEncoded = rawurlencode($email);
+        return "otpauth://totp/{$issuerEncoded}:{$emailEncoded}?secret={$secret}&issuer={$issuerEncoded}";
+    }
+
+    /**
+     * Retorna a URL para gerar o QR Code do TOTP.
      *
      * @param string $email O e-mail/identificador do usuário
      * @param string $secret O segredo TOTP
@@ -378,11 +388,8 @@ class Security
      */
     public static function getTotpQrCodeUrl(string $email, string $secret, string $issuer = 'MikroTik Pay'): string
     {
-        $issuerEncoded = rawurlencode($issuer);
-        $emailEncoded = rawurlencode($email);
-        $otpauth = "otpauth://totp/{$issuerEncoded}:{$emailEncoded}?secret={$secret}&issuer={$issuerEncoded}";
-        
-        return 'https://chart.googleapis.com/chart?chs=200x200&chld=M|0&cht=qr&chl=' . urlencode($otpauth);
+        $otpauth = self::getTotpAuthUrl($email, $secret, $issuer);
+        return 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&margin=10&data=' . urlencode($otpauth);
     }
 
     /**
