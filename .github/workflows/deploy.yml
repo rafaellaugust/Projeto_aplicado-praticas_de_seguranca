@@ -1,0 +1,77 @@
+name: Deploy para Produção
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  # Verificação de segurança do código
+  security-check:
+    name: Verificação de Segurança
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verificar vazamento de credenciais
+        run: |
+          echo "🔍 Verificando vazamento de credenciais..."
+          # Verifica se há senhas ou tokens hardcoded
+          if grep -rn 'DB_PASS.*=.*[A-Za-z0-9]' config.php --include='*.php' | grep -v 'getenv\|\?\:' | grep -v '.env'; then
+            echo "❌ ALERTA: Possível credencial hardcoded encontrada!"
+            exit 1
+          fi
+          echo "✅ Nenhuma credencial exposta encontrada."
+
+      - name: Verificar arquivos sensíveis
+        run: |
+          echo "🔍 Verificando arquivos sensíveis..."
+          SENSITIVE_FILES=(".env" "*.sql" "*.log")
+          for pattern in "${SENSITIVE_FILES[@]}"; do
+            if git ls-files | grep -q "$pattern"; then
+              echo "❌ ALERTA: Arquivo sensível encontrado no repositório: $pattern"
+              exit 1
+            fi
+          done
+          echo "✅ Nenhum arquivo sensível no repositório."
+
+  # Deploy para o servidor de produção
+  deploy:
+    name: Deploy Seguro via SSH
+    needs: security-check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SERVER_PORT || 22 }}
+          script: |
+            echo "📦 Iniciando deploy..."
+            cd /var/www/html/aplicacao
+            
+            # Backup antes do deploy
+            echo "💾 Criando backup..."
+            sudo cp -r . ../aplicacao_backup_$(date +%Y%m%d_%H%M%S) 2>/dev/null || true
+            
+            # Pull das alterações
+            echo "🔄 Atualizando código..."
+            git fetch origin main
+            git reset --hard origin/main
+            
+            # Garantir permissões corretas
+            echo "🔒 Configurando permissões..."
+            sudo chown -R www-data:www-data .
+            sudo chmod -R 750 .
+            sudo chmod 640 .env
+            sudo chmod -R 770 log/
+            sudo chmod -R 770 backups/
+            
+            # Restart do PHP-FPM
+            echo "🔄 Reiniciando PHP-FPM..."
+            sudo systemctl reload php8.1-fpm || sudo systemctl reload php8.3-fpm || true
+            
+            echo "✅ Deploy concluído com sucesso!"

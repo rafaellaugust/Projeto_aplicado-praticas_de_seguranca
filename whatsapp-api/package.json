@@ -1,0 +1,24 @@
+{
+  "name": "mikrotik-whatsapp-api",
+  "version": "1.0.0",
+  "description": "WhatsApp REST API using Baileys for cPanel Shared Hosting integration",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "^6.7.2",
+    "express": "^4.19.2",
+    "node-cron": "^3.0.3",
+    "qrcode": "^1.5.3"
+  },
+  "keywords": [
+    "whatsapp",
+    "baileys",
+    "mikrotik",
+    "api",
+    "express"
+  ],
+  "author": "Antigravity",
+  "license": "MIT"
+}

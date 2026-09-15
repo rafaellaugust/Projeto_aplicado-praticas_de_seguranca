@@ -1,0 +1,66 @@
+# ============================================
+# .gitignore — MikroTik Pay (Spaço Nett)
+# Protege credenciais e dados sensíveis
+# ============================================
+
+# ---- Ambiente & Credenciais ----
+.env
+*.env
+.env.*
+!.env.example
+config.local.php
+
+# ---- Banco de Dados (dumps com dados reais) ----
+Database Atualizado.sql
+Database*.sql
+!schema-only.sql
+backups/
+*.sql.gz
+
+# ---- Logs ----
+log/
+*.log
+
+# ---- Arquivos compactados / temporários ----
+*.zip
+*.gz
+*.tar
+*.tar.gz
+*.bak
+*.tmp
+
+# ---- Imagens de upload do sistema ----
+images/bg-login.*
+
+# ---- IDE & Editor ----
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.settings/
+
+# ---- Sistema Operacional ----
+Thumbs.db
+Desktop.ini
+.DS_Store
+.DS_Store?
+._*
+
+# ---- Dependências PHP ----
+vendor/
+composer.lock
+
+# ---- Node (caso venha a usar) ----
+node_modules/
+package-lock.json
+
+# ---- WhatsApp API local (dados de sessão / chaves privadas) ----
+whatsapp-api/tokens/
+whatsapp-api/node_modules/
+whatsapp-api/auth_info/
+whatsapp-api/store/
+whatsapp-api/tmp/
+whatsapp-api/error.log
+whatsapp-api/config.json
