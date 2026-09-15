@@ -14,7 +14,10 @@ class Security
      *
      * @return string O HTML do input hidden
      */
-    public static function generateCsrfToken(): string
+    /**
+     * Retorna apenas a string do token CSRF da sessão.
+     */
+    public static function getCsrfToken(): string
     {
         if (empty($_SESSION['csrf_token'])) {
             try {
@@ -23,23 +26,36 @@ class Security
                 $_SESSION['csrf_token'] = bin2hex(openssl_random_pseudo_bytes(32));
             }
         }
-        return '<input type="hidden" name="csrf_token" value="' . htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8') . '">';
+        return $_SESSION['csrf_token'];
     }
 
     /**
-     * Valida o token CSRF recebido via POST.
+     * Gera um token CSRF e o armazena na sessão.
+     * Retorna um campo de entrada HTML oculto.
+     *
+     * @return string O HTML do input hidden
+     */
+    public static function generateCsrfToken(): string
+    {
+        return '<input type="hidden" name="csrf_token" value="' . htmlspecialchars(self::getCsrfToken(), ENT_QUOTES, 'UTF-8') . '">';
+    }
+
+    /**
+     * Valida o token CSRF recebido via POST ou parâmetro.
      * Registra falhas no log.
      *
+     * @param string|null $token Token opcional (se nulo, busca em $_POST['csrf_token'])
      * @return bool True se válido, False caso contrário
      */
-    public static function validateCsrfToken(): bool
+    public static function validateCsrfToken(?string $token = null): bool
     {
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            if (!isset($_POST['csrf_token']) || empty($_SESSION['csrf_token'])) {
+            $received = $token ?? ($_POST['csrf_token'] ?? '');
+            if (empty($received) || empty($_SESSION['csrf_token'])) {
                 error_log('Falha na validação do token CSRF do IP: ' . ($_SERVER['REMOTE_ADDR'] ?? 'Desconhecido') . ' (Token ausente)');
                 return false;
             }
-            if (!hash_equals($_SESSION['csrf_token'], $_POST['csrf_token'])) {
+            if (!hash_equals($_SESSION['csrf_token'], $received)) {
                 error_log('Falha na validação do token CSRF do IP: ' . ($_SERVER['REMOTE_ADDR'] ?? 'Desconhecido') . ' (Token inválido)');
                 return false;
             }
@@ -533,7 +549,7 @@ class Security
             return;
         }
         
-        header("Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://chart.googleapis.com; font-src 'self';");
+        header("Content-Security-Policy: default-src 'self' data: https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com; font-src 'self' https://cdnjs.cloudflare.com https://fonts.gstatic.com data:; frame-src 'self' https://www.google.com/recaptcha/ https://recaptcha.google.com/; img-src 'self' data: https: blob:;");
         header("X-Frame-Options: SAMEORIGIN");
         header("X-Content-Type-Options: nosniff");
         header("X-XSS-Protection: 1; mode=block");
@@ -543,5 +559,143 @@ class Security
         if (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') {
             header("Strict-Transport-Security: max-age=31536000; includeSubDomains; preload");
         }
+    }
+
+    /**
+     * Renderiza o widget do Google reCAPTCHA v2 caso RECAPTCHA_SITE_KEY esteja configurado.
+     */
+    public static function renderRecaptchaWidget(): string
+    {
+        $siteKey = getenv('RECAPTCHA_SITE_KEY') ?: '';
+        if (empty($siteKey)) {
+            return ''; // Se não configurado, não quebra a interface
+        }
+        return '
+        <div class="mb-3 d-flex justify-content-center">
+            <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+            <div class="g-recaptcha" data-sitekey="' . htmlspecialchars($siteKey, ENT_QUOTES, 'UTF-8') . '"></div>
+        </div>';
+    }
+
+    /**
+     * Valida a resposta do Google reCAPTCHA.
+     * Retorna true se for válido ou se reCAPTCHA não estiver ativado no .env.
+     */
+    public static function verifyRecaptcha(?string $recaptchaResponse, ?string $remoteIp = null): bool
+    {
+        $secretKey = getenv('RECAPTCHA_SECRET_KEY') ?: '';
+        if (empty($secretKey)) {
+            return true; // reCAPTCHA opcional se não configurado
+        }
+
+        if (empty($recaptchaResponse)) {
+            return false;
+        }
+
+        $ip = $remoteIp ?: ($_SERVER['REMOTE_ADDR'] ?? '');
+        $url = 'https://www.google.com/recaptcha/api/siteverify';
+        $postData = http_build_query([
+            'secret' => $secretKey,
+            'response' => $recaptchaResponse,
+            'remoteip' => $ip
+        ]);
+
+        $opts = [
+            'http' => [
+                'method' => 'POST',
+                'header' => "Content-Type: application/x-www-form-urlencoded\r\n" .
+                            "Content-Length: " . strlen($postData) . "\r\n",
+                'content' => $postData,
+                'timeout' => 5
+            ]
+        ];
+
+        try {
+            $context = stream_context_create($opts);
+            $result = @file_get_contents($url, false, $context);
+            if ($result) {
+                $json = json_decode($result, true);
+                return !empty($json['success']);
+            }
+        } catch (Exception $e) {
+            error_log('Erro ao validar reCAPTCHA: ' . $e->getMessage());
+        }
+
+        return false;
+    }
+
+    /**
+     * Gera um código de verificação em duas etapas por e-mail (6 dígitos).
+     * Armazena na sessão com expiração de 10 minutos.
+     */
+    public static function generateEmailOtp(int $userId, string $userType = 'admin'): string
+    {
+        $code = sprintf('%06d', random_int(100000, 999999));
+        $_SESSION['email_2fa_code_hash'] = hash('sha256', $code);
+        $_SESSION['email_2fa_expires'] = time() + 600; // 10 minutos
+        $_SESSION['email_2fa_user_id'] = $userId;
+        $_SESSION['email_2fa_user_type'] = $userType;
+        return $code;
+    }
+
+    /**
+     * Envia o código 2FA para o e-mail do usuário.
+     */
+    public static function sendEmailOtp(string $toEmail, string $code, string $nomeUsuario = 'Usuário'): bool
+    {
+        $assunto = "Código de Segurança (2FA) - MikroTik Pay";
+        $headers = [
+            'MIME-Version: 1.0',
+            'Content-type: text/html; charset=utf-8',
+            'From: ' . (getenv('MAIL_FROM') ?: 'no-reply@spaconett.com'),
+            'Reply-To: ' . (getenv('MAIL_FROM') ?: 'no-reply@spaconett.com'),
+            'X-Mailer: PHP/' . phpversion()
+        ];
+
+        $corpo = '
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="utf-8"></head>
+        <body style="font-family: Arial, sans-serif; background:#0f172a; color:#f8fafc; padding:20px;">
+            <div style="max-width:500px; margin:0 auto; background:#1e293b; border-radius:12px; padding:30px; border:1px solid #334155;">
+                <h2 style="color:#0ea5e9; text-align:center; margin-top:0;">MikroTik Pay</h2>
+                <p>Olá, <strong>' . htmlspecialchars($nomeUsuario, ENT_QUOTES, 'UTF-8') . '</strong>,</p>
+                <p>Recebemos uma solicitação de acesso à sua conta. Utilize o código de verificação abaixo:</p>
+                <div style="text-align:center; margin:25px 0;">
+                    <span style="font-size:32px; font-weight:bold; letter-spacing:6px; color:#38bdf8; background:#0f172a; padding:10px 20px; border-radius:8px; border:1px dashed #0284c7;">' . $code . '</span>
+                </div>
+                <p style="font-size:13px; color:#94a3b8; text-align:center;">Este código é válido por <strong>10 minutos</strong>. Se não foi você quem solicitou, recomendamos alterar sua senha imediatamente.</p>
+            </div>
+        </body>
+        </html>';
+
+        Database::log('auth_email_2fa', "Código de 2FA por e-mail gerado para: {$toEmail}", [
+            'ip' => $_SERVER['REMOTE_ADDR'] ?? 'desconhecido'
+        ]);
+
+        return @mail($toEmail, $assunto, $corpo, implode("\r\n", $headers));
+    }
+
+    /**
+     * Valida o código 2FA recebido por e-mail.
+     */
+    public static function verifyEmailOtp(string $code): bool
+    {
+        if (empty($_SESSION['email_2fa_code_hash']) || empty($_SESSION['email_2fa_expires'])) {
+            return false;
+        }
+
+        if (time() > $_SESSION['email_2fa_expires']) {
+            unset($_SESSION['email_2fa_code_hash'], $_SESSION['email_2fa_expires']);
+            return false;
+        }
+
+        $inputHash = hash('sha256', trim($code));
+        if (hash_equals($_SESSION['email_2fa_code_hash'], $inputHash)) {
+            unset($_SESSION['email_2fa_code_hash'], $_SESSION['email_2fa_expires']);
+            return true;
+        }
+
+        return false;
     }
 }

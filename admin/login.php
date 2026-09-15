@@ -9,6 +9,7 @@ require_once __DIR__ . '/../src/Security.php';
 require_once __DIR__ . '/../src/SessionGuard.php';
 
 SessionGuard::init();
+Security::sendSecurityHeaders();
 
 $error = '';
 $ip = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
@@ -19,6 +20,8 @@ if (Security::isIpBlocked($ip)) {
     $csrfToken = $_POST['csrf_token'] ?? '';
     if (!Security::validateCsrfToken($csrfToken)) {
         $error = 'Token de segurança inválido. Tente novamente.';
+    } elseif (!Security::verifyRecaptcha($_POST['g-recaptcha-response'] ?? '')) {
+        $error = 'Falha na verificação do reCAPTCHA. Confirme que você não é um robô.';
     } elseif (Security::checkRateLimit($ip)) {
         $email = sanitize($_POST['email'] ?? '');
         $senha = $_POST['senha'] ?? '';
@@ -102,7 +105,7 @@ if (Security::isIpBlocked($ip)) {
                         <?php endif; ?>
 
                         <form method="POST" action="login.php">
-                            <input type="hidden" name="csrf_token" value="<?= Security::generateCsrfToken() ?>">
+                            <?= Security::generateCsrfToken() ?>
                             
                             <div class="mb-3">
                                 <label for="email" class="form-label">E-mail</label>
@@ -119,6 +122,8 @@ if (Security::isIpBlocked($ip)) {
                                     <input type="password" class="form-control bg-dark text-light border-0" id="senha" name="senha" required>
                                 </div>
                             </div>
+
+                            <?= Security::renderRecaptchaWidget() ?>
                             
                             <button type="submit" class="btn btn-primary w-100 py-2 fw-bold">Entrar</button>
                         </form>

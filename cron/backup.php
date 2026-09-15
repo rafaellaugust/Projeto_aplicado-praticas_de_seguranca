@@ -12,11 +12,19 @@
 
 require_once __DIR__ . '/../config.php';
 
-// Se acessado via navegador web, exigir token simples para segurança
+// Se acessado via navegador web, exigir token seguro configurado ou sessão administrativa
 if (php_sapi_name() !== 'cli') {
-    $tokenInformado = $_GET['key'] ?? '';
-    // Aceita chave segura ou checagem de admin logado via sessão
-    if ($tokenInformado !== 'spaconett_backup' && empty($_SESSION['admin_id'])) {
+    $tokenInformado = $_GET['key'] ?? ($_GET['token'] ?? '');
+    $cronSecret = getenv('CRON_TOKEN') ?: '';
+    
+    $autorizado = false;
+    if (!empty($cronSecret) && hash_equals($cronSecret, $tokenInformado)) {
+        $autorizado = true;
+    } elseif (!empty($_SESSION['admin_id'])) {
+        $autorizado = true;
+    }
+
+    if (!$autorizado) {
         http_response_code(403);
         die(json_encode(['error' => 'Acesso não autorizado ao cron de backup.']));
     }

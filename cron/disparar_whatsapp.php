@@ -122,11 +122,15 @@ if (!$isAdmin && PHP_SAPI !== 'cli') {
     }
     $bearerToken = str_replace('Bearer ', '', $authHeader);
 
-    // Aceita se o token for igual ao wa_token cadastrado, chave spaconett_cron ou se não houver token configurado
-    if (!empty($waToken)) {
-        $isCron = ($bearerToken === $waToken || $tokenGet === $waToken || $tokenGet === 'spaconett_cron');
+    $cronSecret = getenv('CRON_TOKEN') ?: '';
+    
+    // Aceita se o token for igual ao wa_token cadastrado no banco ou CRON_TOKEN do ambiente
+    if (!empty($waToken) && ($bearerToken === $waToken || $tokenGet === $waToken)) {
+        $isCron = true;
+    } elseif (!empty($cronSecret) && ($bearerToken === $cronSecret || $tokenGet === $cronSecret)) {
+        $isCron = true;
     } else {
-        $isCron = true; // Sem token = sem restrição
+        $isCron = false;
     }
 }
 

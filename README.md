@@ -24,7 +24,7 @@ Desenvolvido com foco em **Secure by Design** e **Secure by Default**, utilizand
 | Sistema Operacional | Ubuntu Server / Debian |
 | CI/CD | GitHub Actions |
 | IDE | Google Antigravity |
-| Autenticação | Bcrypt + TOTP (Google Authenticator) |
+| Autenticação | Bcrypt + 2FA Multi-fator (Google Authenticator TOTP & E-mail OTP) + Google reCAPTCHA v2 |
 
 ## 📂 Estrutura do Projeto
 
@@ -129,11 +129,12 @@ public static function encryptData($data) {
 Relacionada à gestão inadequada de sessões, senhas fracas, falta de Multi-Factor Authentication (MFA), exposição a ataques de força bruta (brute force) e stuffing de credenciais.
 
 **Como o projeto previne:**
-O sistema implementa Autenticação de Múltiplos Fatores (MFA) obrigatória para contas administrativas através de TOTP (RFC 6238 - Google Authenticator). Para evitar força bruta, um rigoroso sistema de Rate Limiting e bloqueio de IPs é mantido. Após 5 tentativas falhas, a conta é bloqueada por 15 minutos. Após 10 tentativas a partir de um mesmo IP, o IP recebe um banimento de 24 horas.
+O sistema implementa Autenticação de Múltiplos Fatores (MFA/2FA) para contas administrativas através de TOTP (RFC 6238 - Google Authenticator), verificação em duas etapas por E-mail (OTP de 6 dígitos) e códigos de recuperação one-time. Para proteção contra bots e força bruta automatizada, o sistema integra Google reCAPTCHA v2, Rate Limiting (5 tentativas / 15 min) e auto-ban de 24 horas após 10 tentativas falhas por IP.
 
 **Referências de Implementação:**
-- Arquivo: `src/Security.php` (Rate limiting, IP Ban e Validação TOTP)
-- Arquivo: `admin/login.php` e `admin/2fa-verify.php` (Fluxo de login de múltiplas etapas)
+- Arquivo: `src/Security.php` (Rate limiting, IP Ban, Validação TOTP, E-mail 2FA e reCAPTCHA)
+- Arquivo: `admin/login.php` e `admin/2fa-verify.php` (Fluxo de login de múltiplas etapas: Senha -> Google Auth / E-mail -> Dashboard)
+- Arquivo: `cliente/login.php` (Login do cliente com senha obrigatória, reCAPTCHA e rate limiting)
 
 **Exemplo de Código (Rate Limiting contra Força Bruta):**
 ```php

@@ -4,12 +4,15 @@ require_once __DIR__ . '/../src/Security.php';
 require_once __DIR__ . '/../src/SessionGuard.php';
 
 SessionGuard::init();
+Security::sendSecurityHeaders();
 
 $erro = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!Security::validateCsrfToken()) {
         $erro = 'Sessão expirada ou requisição inválida. Tente novamente.';
+    } elseif (!Security::verifyRecaptcha($_POST['g-recaptcha-response'] ?? '')) {
+        $erro = 'Falha na verificação do reCAPTCHA. Confirme que você não é um robô.';
     } else {
         $loginInput = sanitize($_POST['login_input'] ?? '');
         $senha = $_POST['senha'] ?? '';
@@ -575,6 +578,8 @@ foreach ($allowedExtensions as $ext) {
                 <div class="instruction-banner mb-3">
                     <i class="fa-solid fa-hand-pointer"></i> Use o email, telefone ou CPF cadastrado
                 </div>
+
+                <?= Security::renderRecaptchaWidget() ?>
                 
                 <!-- Action Button -->
                 <button type="submit" class="submit-btn">

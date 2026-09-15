@@ -6,22 +6,26 @@ $msgSuccess = '';
 $msgError = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $nome = sanitize($_POST['nome'] ?? 'MikroTik Principal');
-    $ipHost = sanitize($_POST['ip_host'] ?? '');
-    $portaApi = (int)($_POST['porta_api'] ?? 8728);
-    $usuario = sanitize($_POST['usuario'] ?? '');
-    $senha = $_POST['senha'] ?? '';
-    $usarSsl = isset($_POST['usar_ssl']) ? 1 : 0;
-
-    if ($ipHost && $usuario) {
-        $stmt = $db->prepare("
-            UPDATE roteadores SET nome = ?, ip_host = ?, porta_api = ?, usuario = ?, senha = ?, usar_ssl = ? 
-            WHERE id = 1
-        ");
-        $stmt->execute([$nome, $ipHost, $portaApi, $usuario, $senha, $usarSsl]);
-        $msgSuccess = "Configurações do MikroTik salvas com sucesso!";
+    if (!Security::validateCsrfToken()) {
+        $msgError = "Token de segurança inválido ou sessão expirada.";
     } else {
-        $msgError = "Preencha o IP/Host e o Usuário de acesso.";
+        $nome = sanitize($_POST['nome'] ?? 'MikroTik Principal');
+        $ipHost = sanitize($_POST['ip_host'] ?? '');
+        $portaApi = (int)($_POST['porta_api'] ?? 8728);
+        $usuario = sanitize($_POST['usuario'] ?? '');
+        $senha = $_POST['senha'] ?? '';
+        $usarSsl = isset($_POST['usar_ssl']) ? 1 : 0;
+
+        if ($ipHost && $usuario) {
+            $stmt = $db->prepare("
+                UPDATE roteadores SET nome = ?, ip_host = ?, porta_api = ?, usuario = ?, senha = ?, usar_ssl = ? 
+                WHERE id = 1
+            ");
+            $stmt->execute([$nome, $ipHost, $portaApi, $usuario, $senha, $usarSsl]);
+            $msgSuccess = "Configurações do MikroTik salvas com sucesso!";
+        } else {
+            $msgError = "Preencha o IP/Host e o Usuário de acesso.";
+        }
     }
 }
 
@@ -84,6 +88,7 @@ $router = $stmtR->fetch();
     <div class="col-md-8">
         <div class="card-custom">
             <form method="POST" action="">
+                <?= Security::generateCsrfToken() ?>
                 <div class="mb-3">
                     <label class="form-label small text-secondary">Nome do Roteador</label>
                     <input type="text" name="nome" class="form-control-custom" value="<?= sanitize($router['nome'] ?? 'MikroTik Principal') ?>">

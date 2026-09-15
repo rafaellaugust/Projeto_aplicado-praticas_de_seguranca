@@ -12,12 +12,26 @@
  *  https://seusite.com/cron/sincronizar_mikrotik.php
  */
 
-// Permite execução via CLI ou via HTTP
+require_once __DIR__ . '/../config.php';
+
+// Se acessado via navegador web, exigir token seguro configurado ou sessão administrativa
 if (PHP_SAPI !== 'cli') {
+    $tokenInformado = $_GET['key'] ?? ($_GET['token'] ?? '');
+    $cronSecret = getenv('CRON_TOKEN') ?: '';
+    
+    $autorizado = false;
+    if (!empty($cronSecret) && hash_equals($cronSecret, $tokenInformado)) {
+        $autorizado = true;
+    } elseif (!empty($_SESSION['admin_id'])) {
+        $autorizado = true;
+    }
+
+    if (!$autorizado) {
+        http_response_code(403);
+        die(json_encode(['error' => 'Acesso não autorizado à sincronização MikroTik.']));
+    }
     header('Content-Type: application/json; charset=utf-8');
 }
-
-require_once __DIR__ . '/../config.php';
 
 $inicioExecucao = microtime(true);
 $logs = [];
