@@ -13,6 +13,7 @@ config.local.php
 # ---- Banco de Dados (dumps com dados reais) ----
 Database Atualizado.sql
 Database*.sql
+banco_completo_instalacao.sql
 !schema-only.sql
 backups/
 *.sql.gz
