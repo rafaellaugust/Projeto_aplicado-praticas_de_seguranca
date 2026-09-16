@@ -121,7 +121,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $bgImage = '';
-$allowedExtensions = ['png', 'jpg', 'jpeg', 'webp'];
+$allowedExtensions = ['webp', 'png', 'jpg', 'jpeg'];
 foreach ($allowedExtensions as $ext) {
     if (file_exists(__DIR__ . '/../images/bg-login.' . $ext)) {
         $bgImage = '../images/bg-login.' . $ext . '?v=' . filemtime(__DIR__ . '/../images/bg-login.' . $ext);
