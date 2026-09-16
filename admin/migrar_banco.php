@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 require_once __DIR__ . '/header.php';
 
 $db = Database::getInstance();
@@ -11,6 +11,12 @@ $tabelasComAutoIncrement = [
     'faturas',
     'historico_pagamentos',
     'mikrotik_payment_history',
+    'password_resets',
+    'login_attempts',
+    'blocked_ips',
+    'trusted_devices',
+    'active_sessions',
+    'whatsapp_disparos',
     'planos',
     'roteadores',
     'webhook_logs'

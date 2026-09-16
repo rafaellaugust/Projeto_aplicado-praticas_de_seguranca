@@ -19,7 +19,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!Security::validateCsrfToken()) {
         $erro = 'Sessão expirada ou requisição inválida. Tente novamente.';
     } else {
-        $db = Database::getInstance();
+        try {
+            $db = Database::getInstance();
+
+        // Auto-assegura estrutura e AUTO_INCREMENT na tabela password_resets
+        try {
+            $db->exec("
+                CREATE TABLE IF NOT EXISTS `password_resets` (
+                    `id` int NOT NULL AUTO_INCREMENT,
+                    `email` varchar(150) NOT NULL,
+                    `user_type` enum('admin','cliente') NOT NULL DEFAULT 'cliente',
+                    `token_hash` varchar(64) NOT NULL,
+                    `expires_at` datetime NOT NULL,
+                    `used` tinyint(1) NOT NULL DEFAULT 0,
+                    `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (`id`),
+                    KEY `idx_token` (`token_hash`),
+                    KEY `idx_email_type` (`email`, `user_type`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+            ");
+        } catch (\Throwable $t) {}
 
         if (!$isPasso2) {
             $identificador = trim($_POST['identificador'] ?? '');
@@ -28,49 +47,70 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $erro = 'Informe seu E-mail, Telefone (WhatsApp) ou CPF cadastrado.';
             } else {
                 $cleanInput = preg_replace('/[^0-9]/', '', $identificador);
-                $waClean = (strlen($cleanInput) >= 10 && substr($cleanInput, 0, 2) === '55') ? substr($cleanInput, 2) : $cleanInput;
+                $waSuffix = (strlen($cleanInput) >= 8) ? substr($cleanInput, -8) : '';
 
-                $stmt = $db->prepare("
+                $sql = "
                     SELECT id, nome, email, whatsapp FROM clientes
-                    WHERE email = ? 
-                       OR cpf_cnpj = ? 
-                       OR REPLACE(REPLACE(REPLACE(cpf_cnpj, '.', ''), '-', ''), '/', '') = ?
-                       OR whatsapp = ? 
-                       OR whatsapp = ? 
-                       OR (LENGTH(?) >= 8 AND SUBSTRING(whatsapp, -8) = SUBSTRING(?, -8))
-                       OR pppoe_usuario = ?
-                    LIMIT 1
-                ");
-                $stmt->execute([
-                    $identificador,
-                    $identificador,
-                    $cleanInput ?: $identificador,
-                    $identificador,
-                    $waClean ?: $identificador,
-                    $cleanInput ?: '0',
-                    $cleanInput ?: '0',
-                    $identificador
-                ]);
+                    WHERE email = :ident1 
+                       OR pppoe_usuario = :ident2
+                       OR cpf_cnpj = :ident3
+                ";
+                $params = [
+                    ':ident1' => $identificador,
+                    ':ident2' => $identificador,
+                    ':ident3' => $identificador
+                ];
+
+                if (!empty($cleanInput)) {
+                    $sql .= " OR REPLACE(REPLACE(REPLACE(cpf_cnpj, '.', ''), '-', ''), '/', '') = :cleanCpf";
+                    $sql .= " OR REPLACE(REPLACE(REPLACE(REPLACE(whatsapp, '(', ''), ')', ''), '-', ''), ' ', '') = :cleanWa";
+                    $params[':cleanCpf'] = $cleanInput;
+                    $params[':cleanWa'] = $cleanInput;
+                }
+
+                if (!empty($waSuffix)) {
+                    $sql .= " OR RIGHT(REPLACE(REPLACE(REPLACE(REPLACE(whatsapp, '(', ''), ')', ''), '-', ''), ' ', ''), 8) = :waSuffix";
+                    $params[':waSuffix'] = $waSuffix;
+                }
+
+                $sql .= " LIMIT 1";
+
+                $stmt = $db->prepare($sql);
+                $stmt->execute($params);
                 $cliente = $stmt->fetch();
 
                 if ($cliente) {
                     if (!empty($cliente['email'])) {
-                        $db->prepare("UPDATE password_resets SET used = 1 WHERE email = ? AND user_type = 'cliente' AND used = 0")->execute([$cliente['email']]);
+                        try {
+                            $db->prepare("UPDATE password_resets SET used = 1 WHERE email = ? AND user_type = 'cliente' AND used = 0")->execute([$cliente['email']]);
+                        } catch (\Throwable $t) {}
 
                         try {
                             $token = bin2hex(random_bytes(32));
-                        } catch (Exception $e) {
+                        } catch (\Throwable $e) {
                             $token = bin2hex(openssl_random_pseudo_bytes(32));
                         }
                         $tokenHash = hash('sha256', $token);
 
-                        $db->prepare("
-                            INSERT INTO password_resets (email, user_type, token_hash, expires_at, used, created_at)
-                            VALUES (?, 'cliente', ?, DATE_ADD(NOW(), INTERVAL 15 MINUTE), 0, NOW())
-                        ")->execute([$cliente['email'], $tokenHash]);
+                        // Inserção com auto-recuperação de ID / AUTO_INCREMENT
+                        try {
+                            $db->prepare("
+                                INSERT INTO password_resets (email, user_type, token_hash, expires_at, used, created_at)
+                                VALUES (?, 'cliente', ?, DATE_ADD(NOW(), INTERVAL 15 MINUTE), 0, NOW())
+                            ")->execute([$cliente['email'], $tokenHash]);
+                        } catch (\Throwable $t) {
+                            try { $db->exec("ALTER TABLE `password_resets` ADD PRIMARY KEY (`id`)"); } catch (\Throwable $t2) {}
+                            try { $db->exec("ALTER TABLE `password_resets` MODIFY `id` int NOT NULL AUTO_INCREMENT"); } catch (\Throwable $t3) {}
+                            $maxId = (int)$db->query("SELECT COALESCE(MAX(id), 0) FROM password_resets")->fetchColumn() + 1;
+                            $db->prepare("
+                                INSERT INTO password_resets (id, email, user_type, token_hash, expires_at, used, created_at)
+                                VALUES (?, ?, 'cliente', ?, DATE_ADD(NOW(), INTERVAL 15 MINUTE), 0, NOW())
+                            ")->execute([$maxId, $cliente['email'], $tokenHash]);
+                        }
 
                         $link = BASE_URL . '/cliente/recuperar-senha.php?token=' . rawurlencode($token);
-                        $enviou = Security::sendPasswordResetEmail($cliente['email'], $cliente['nome'], $link, 'cliente');
+                        $nomeCliente = !empty($cliente['nome']) ? (string)$cliente['nome'] : 'Assinante';
+                        $enviou = Security::sendPasswordResetEmail($cliente['email'], $nomeCliente, $link, 'cliente');
 
                         Database::log('auth_cliente', "Solicitação de recuperação de senha do cliente: {$cliente['email']}", [
                             'cliente_id' => $cliente['id'],
@@ -134,7 +174,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $isPasso2 = true;
             $tokenParam = $tokenRecebido ?: $tokenParam;
         }
+    } catch (\Throwable $e) {
+        error_log("Erro em cliente/recuperar-senha.php: " . $e->getMessage());
+        Database::log('erro_recuperar_senha', "Exceção em cliente/recuperar-senha.php: " . $e->getMessage(), [
+            'identificador' => $_POST['identificador'] ?? '',
+            'ip' => $_SERVER['REMOTE_ADDR'] ?? 'desconhecido'
+        ]);
+        $erro = 'Ocorreu uma falha temporária ao processar sua solicitação: ' . $e->getMessage();
     }
+}
 }
 
 $bgImage = '';
