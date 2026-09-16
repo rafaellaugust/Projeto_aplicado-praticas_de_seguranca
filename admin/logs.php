@@ -4,6 +4,43 @@ checkAdminLogin();
 
 $db = Database::getInstance();
 
+// Garante que a tabela logs tenha chave primária e AUTO_INCREMENT
+try {
+    $db->exec("ALTER TABLE `logs` ADD PRIMARY KEY (`id`)");
+} catch (Exception $e) {}
+try {
+    $db->exec("ALTER TABLE `logs` MODIFY `id` int NOT NULL AUTO_INCREMENT");
+} catch (Exception $e) {}
+
+// Sincronização automática do arquivo físico de hoje para a tabela logs se estiver faltando
+try {
+    $logFileHoje = __DIR__ . '/../log/app-' . date('Y-m-d') . '.log';
+    if (file_exists($logFileHoje)) {
+        $countHoje = (int)$db->query("SELECT COUNT(*) FROM logs WHERE DATE(criado_em) = CURRENT_DATE()")->fetchColumn();
+        $linhasArquivo = @file($logFileHoje, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [];
+        if (count($linhasArquivo) > $countHoje) {
+            $maxId = (int)$db->query("SELECT COALESCE(MAX(id), 0) FROM logs")->fetchColumn();
+            $stmtCheck = $db->prepare("SELECT id FROM logs WHERE mensagem = ? AND criado_em = ? LIMIT 1");
+            $stmtInsert = $db->prepare("INSERT INTO logs (id, tipo, mensagem, detalhes, criado_em) VALUES (?, ?, ?, ?, ?)");
+            
+            foreach ($linhasArquivo as $linha) {
+                if (preg_match('/^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\]\s*\[(.*?)\]\s*(.*?)(?:\s*\|\s*Detalhes:\s*(.*))?$/', $linha, $matches)) {
+                    $dataHora = $matches[1];
+                    $tipo = strtolower(trim($matches[2]));
+                    $msg = trim($matches[3]);
+                    $det = !empty($matches[4]) ? trim($matches[4]) : null;
+                    
+                    $stmtCheck->execute([$msg, $dataHora]);
+                    if (!$stmtCheck->fetch()) {
+                        $maxId++;
+                        $stmtInsert->execute([$maxId, $tipo, $msg, $det, $dataHora]);
+                    }
+                }
+            }
+        }
+    }
+} catch (Exception $e) {}
+
 $msgSuccess = '';
 $msgError = '';
 

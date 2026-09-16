@@ -30,13 +30,32 @@ class Database {
     public static function log($tipo, $mensagem, $detalhes = null) {
         $detalhesStr = is_array($detalhes) || is_object($detalhes) ? json_encode($detalhes, JSON_UNESCAPED_UNICODE) : $detalhes;
         
-        // 1. Gravação no Banco de Dados
+        // 1. Gravação no Banco de Dados com auto-recuperação
         try {
             $db = self::getInstance();
-            $stmt = $db->prepare("INSERT INTO logs (tipo, mensagem, detalhes) VALUES (?, ?, ?)");
-            $stmt->execute([$tipo, $mensagem, $detalhesStr]);
+            try {
+                $stmt = $db->prepare("INSERT INTO logs (tipo, mensagem, detalhes, criado_em) VALUES (?, ?, ?, NOW())");
+                $stmt->execute([$tipo, $mensagem, $detalhesStr]);
+            } catch (Exception $e) {
+                // Se falhou por causa da coluna 'id' sem valor default ou falta de auto_increment
+                try {
+                    $db->exec("ALTER TABLE logs ADD PRIMARY KEY (`id`)");
+                } catch (Exception $e2) {}
+                try {
+                    $db->exec("ALTER TABLE logs MODIFY `id` int NOT NULL AUTO_INCREMENT");
+                } catch (Exception $e3) {}
+
+                // Fallback garantido: busca MAX(id) + 1 e insere explicitamente
+                try {
+                    $maxId = (int)$db->query("SELECT COALESCE(MAX(id), 0) FROM logs")->fetchColumn() + 1;
+                    $stmtRetry = $db->prepare("INSERT INTO logs (id, tipo, mensagem, detalhes, criado_em) VALUES (?, ?, ?, ?, NOW())");
+                    $stmtRetry->execute([$maxId, $tipo, $mensagem, $detalhesStr]);
+                } catch (Exception $e4) {
+                    error_log('Erro ao gravar log no banco: ' . $e4->getMessage());
+                }
+            }
         } catch (Exception $e) {
-            // Ignora falhas no banco para não interromper a aplicação
+            // Ignora falhas gerais no banco para não interromper a aplicação
         }
 
         // 2. Gravação de Cópia em Arquivo Físico na pasta /log/
