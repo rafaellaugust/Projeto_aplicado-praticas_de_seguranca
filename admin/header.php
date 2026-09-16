@@ -24,7 +24,7 @@ $mikrotikOnline = $mikrotikApi->testConnection();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Painel Administrativo - MikroTik Pay</title>
+    <title>Painel Administrativo - <?= htmlspecialchars(getEmpresaNome()) ?></title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -88,7 +88,7 @@ $mikrotikOnline = $mikrotikApi->testConnection();
 <nav class="navbar navbar-expand-xl navbar-custom sticky-top py-2">
     <div class="container-fluid px-3">
         <a class="navbar-brand brand-title d-flex align-items-center gap-2 me-3" href="index.php">
-            <i class="fa-solid fa-network-wired text-info"></i> Spaço Nett
+            <i class="fa-solid fa-network-wired text-info"></i> <?= htmlspecialchars(getEmpresaNome()) ?>
         </a>
         <button class="navbar-toggler text-white border-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#adminNavbar">
             <i class="fa-solid fa-bars"></i>

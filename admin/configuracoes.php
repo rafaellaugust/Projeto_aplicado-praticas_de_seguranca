@@ -146,8 +146,9 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'testar_smtp') {
             echo json_encode(['success' => false, 'message' => 'Configure um e-mail remetente (SMTP From) antes de testar.']);
             exit;
         }
-        $corpo = '<div style="font-family:Arial; padding:20px; background:#1e293b; color:#f8fafc; border-radius:8px;"><h3 style="color:#0ea5e9;">✅ Teste SMTP — MikroTik Pay</h3><p>Conexão SMTP configurada com sucesso! Esta é uma mensagem de teste enviada pelo painel.</p></div>';
-        $ok = Security::sendEmailSmtp($toEmail, '✅ Teste SMTP — MikroTik Pay', $corpo);
+        $empresa = getEmpresaNome();
+        $corpo = '<div style="font-family:Arial; padding:20px; background:#1e293b; color:#f8fafc; border-radius:8px;"><h3 style="color:#0ea5e9;">✅ Teste SMTP — ' . htmlspecialchars($empresa) . '</h3><p>Conexão SMTP configurada com sucesso! Esta é uma mensagem de teste enviada pelo painel.</p></div>';
+        $ok = Security::sendEmailSmtp($toEmail, "✅ Teste SMTP — {$empresa}", $corpo);
         if ($ok) {
             Database::log('smtp', "Teste de envio de e-mail SMTP enviado com sucesso para {$toEmail}", [
                 'ip' => $_SERVER['REMOTE_ADDR'] ?? '',
@@ -284,7 +285,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // Testar Telegram
 if (isset($_GET['testar_telegram']) && $_GET['testar_telegram'] === '1') {
     $tg = new TelegramService();
-    $res = $tg->sendMessage("🔔 <b>TESTE DE INTEGRAÇÃO TELEGRAM</b>\n\nSua plataforma MikroTik Pay está conectada com sucesso ao Telegram Bot!");
+    $res = $tg->sendMessage("🔔 <b>TESTE DE INTEGRAÇÃO TELEGRAM</b>\n\nSua plataforma " . htmlspecialchars(getEmpresaNome()) . " está conectada com sucesso ao Telegram Bot!");
     if ($res) {
         Database::log('telegram', "Mensagem de teste do Telegram enviada com sucesso", [
             'ip' => $_SERVER['REMOTE_ADDR'] ?? '',

@@ -116,6 +116,35 @@ if (!defined('BASE_URL')) {
 }
 
 /**
+ * Retorna o Nome do Provedor / Razão Social configurado no Banco de Dados.
+ * Se não configurado ou banco inacessível, usa fallback padrão.
+ */
+function getEmpresaNome(): string {
+    static $cachedNome = null;
+    if ($cachedNome !== null) {
+        return $cachedNome;
+    }
+
+    try {
+        if (class_exists('Database')) {
+            $db = Database::getInstance();
+            $nome = $db->query("SELECT empresa_nome FROM configuracoes WHERE id = 1")->fetchColumn();
+            if (!empty($nome)) {
+                $cachedNome = trim((string)$nome);
+                return $cachedNome;
+            }
+        }
+    } catch (\Throwable $e) {}
+
+    $cachedNome = 'Spaço Nett';
+    return $cachedNome;
+}
+
+if (!defined('EMPRESA_NOME')) {
+    define('EMPRESA_NOME', getEmpresaNome());
+}
+
+/**
  * Função Auxiliar para Sanitização de Input
  */
 function sanitize($data) {

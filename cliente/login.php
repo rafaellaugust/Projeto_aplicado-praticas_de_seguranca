@@ -134,7 +134,7 @@ foreach ($allowedExtensions as $ext) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Portal do Assinante - Spaço Nett</title>
+    <title>Portal do Assinante - <?= htmlspecialchars(getEmpresaNome()) ?></title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -538,7 +538,7 @@ foreach ($allowedExtensions as $ext) {
     <!-- Left Panel: Brand info & rocket (Desktop only) -->
     <div class="login-left-panel">
         <div class="left-content">
-            <h1 class="brand-name">SPAÇO NETT <i class="fa-solid fa-wifi brand-wifi-icon"></i></h1>
+            <h1 class="brand-name"><?= htmlspecialchars(mb_strtoupper(getEmpresaNome(), 'UTF-8')) ?> <i class="fa-solid fa-wifi brand-wifi-icon"></i></h1>
             <p class="welcome-text">Bem vindo</p>
             
             <!-- Rocket illustration SVG -->
@@ -568,7 +568,7 @@ foreach ($allowedExtensions as $ext) {
             <div class="mobile-logo-badge">
                 <i class="fa-solid fa-wifi"></i>
             </div>
-            <h2 class="mobile-brand-name">SPAÇO NETT</h2>
+            <h2 class="mobile-brand-name"><?= htmlspecialchars(mb_strtoupper(getEmpresaNome(), 'UTF-8')) ?></h2>
         </div>
         
         <!-- Form Container -->
@@ -644,7 +644,7 @@ foreach ($allowedExtensions as $ext) {
                 WhatsApp &nbsp;|&nbsp; (82) 9.9933 - 4425
             </div>
             <div class="footer-copyright">
-                © 2026 Spaço Nett. Sistema de Gerenciamento
+                © <?= date('Y') ?> <?= htmlspecialchars(getEmpresaNome()) ?>. Sistema de Gerenciamento
             </div>
         </div>
     </div>

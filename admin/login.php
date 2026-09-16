@@ -94,7 +94,7 @@ if (Security::isIpBlocked($ip)) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login Administrativo - MikroTik Pay</title>
+    <title>Login Administrativo - <?= htmlspecialchars(getEmpresaNome()) ?></title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="../assets/css/style.css">
@@ -107,7 +107,8 @@ if (Security::isIpBlocked($ip)) {
                     <div class="card-body p-5">
                         <div class="text-center mb-4">
                             <i class="fas fa-server fa-3x text-primary mb-3"></i>
-                            <h4 class="mb-0">Administração</h4>
+                            <h4 class="mb-1 text-white fw-bold"><?= htmlspecialchars(getEmpresaNome()) ?></h4>
+                            <p class="text-muted small">Painel Administrativo</p>
                         </div>
                         
                         <?php if ($error): ?>

@@ -155,7 +155,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Recuperação de Senha - MikroTik Pay</title>
+    <title>Recuperação de Senha - <?= htmlspecialchars(getEmpresaNome()) ?></title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -171,7 +171,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <i class="fa-solid <?= $isPasso2 ? 'fa-key' : 'fa-lock-open' ?> fa-3x text-info"></i>
                         </div>
                         <h4 class="fw-bold text-white"><?= $isPasso2 ? 'Redefinir Senha' : 'Recuperar Acesso' ?></h4>
-                        <p class="text-secondary small">Painel Administrativo — Spaço Nett</p>
+                        <p class="text-secondary small">Painel Administrativo — <?= htmlspecialchars(getEmpresaNome()) ?></p>
                     </div>
 
                     <?php if ($erro): ?>

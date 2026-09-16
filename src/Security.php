@@ -371,9 +371,10 @@ class Security
     /**
      * Retorna a URI otpauth:// padrão RFC 6238 para aplicativos TOTP.
      */
-    public static function getTotpAuthUrl(string $email, string $secret, string $issuer = 'MikroTik Pay'): string
+    public static function getTotpAuthUrl(string $email, string $secret, ?string $issuer = null): string
     {
-        $issuerEncoded = rawurlencode($issuer);
+        $nomeEmissor = !empty($issuer) ? $issuer : (function_exists('getEmpresaNome') ? getEmpresaNome() : 'MikroTik Pay');
+        $issuerEncoded = rawurlencode($nomeEmissor);
         $emailEncoded = rawurlencode($email);
         return "otpauth://totp/{$issuerEncoded}:{$emailEncoded}?secret={$secret}&issuer={$issuerEncoded}";
     }
@@ -383,10 +384,10 @@ class Security
      *
      * @param string $email O e-mail/identificador do usuário
      * @param string $secret O segredo TOTP
-     * @param string $issuer O nome do emissor (ex: MikroTik Pay)
+     * @param string|null $issuer O nome do emissor (nulo = busca do banco)
      * @return string
      */
-    public static function getTotpQrCodeUrl(string $email, string $secret, string $issuer = 'MikroTik Pay'): string
+    public static function getTotpQrCodeUrl(string $email, string $secret, ?string $issuer = null): string
     {
         $otpauth = self::getTotpAuthUrl($email, $secret, $issuer);
         return 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&margin=10&data=' . urlencode($otpauth);
@@ -726,7 +727,8 @@ class Security
      */
     public static function sendEmailOtp(string $toEmail, string $code, string $nomeUsuario = 'Usuário'): bool
     {
-        $assunto = "Código de Segurança (2FA) - MikroTik Pay";
+        $empresa = function_exists('getEmpresaNome') ? getEmpresaNome() : 'MikroTik Pay';
+        $assunto = "Código de Segurança (2FA) — {$empresa}";
         $headers = [
             'MIME-Version: 1.0',
             'Content-type: text/html; charset=utf-8',
@@ -741,7 +743,7 @@ class Security
         <head><meta charset="utf-8"></head>
         <body style="font-family: Arial, sans-serif; background:#0f172a; color:#f8fafc; padding:20px;">
             <div style="max-width:500px; margin:0 auto; background:#1e293b; border-radius:12px; padding:30px; border:1px solid #334155;">
-                <h2 style="color:#0ea5e9; text-align:center; margin-top:0;">MikroTik Pay</h2>
+                <h2 style="color:#0ea5e9; text-align:center; margin-top:0;">' . htmlspecialchars($empresa, ENT_QUOTES, 'UTF-8') . '</h2>
                 <p>Olá, <strong>' . htmlspecialchars($nomeUsuario, ENT_QUOTES, 'UTF-8') . '</strong>,</p>
                 <p>Recebemos uma solicitação de acesso à sua conta. Utilize o código de verificação abaixo:</p>
                 <div style="text-align:center; margin:25px 0;">
@@ -1011,7 +1013,8 @@ class Security
      */
     public static function sendPasswordResetEmail(string $toEmail, string $nomeUsuario, string $resetLink, string $userType = 'admin'): bool
     {
-        $assunto = "Recuperação de Senha — MikroTik Pay";
+        $empresa = function_exists('getEmpresaNome') ? getEmpresaNome() : 'MikroTik Pay';
+        $assunto = "Recuperação de Senha — {$empresa}";
         $tipoLabel = $userType === 'admin' ? 'Administrador' : 'Portal do Assinante';
 
         $corpo = '<!DOCTYPE html>
@@ -1020,7 +1023,7 @@ class Security
 <body style="font-family: Arial, sans-serif; background:#0f172a; color:#f8fafc; padding:20px; margin:0;">
     <div style="max-width:500px; margin:0 auto; background:#1e293b; border-radius:12px; padding:30px; border:1px solid #334155;">
         <div style="text-align:center; margin-bottom:24px;">
-            <h2 style="color:#0ea5e9; margin:0;">🔒 MikroTik Pay</h2>
+            <h2 style="color:#0ea5e9; margin:0;">🔒 ' . htmlspecialchars($empresa, ENT_QUOTES, 'UTF-8') . '</h2>
             <p style="color:#94a3b8; font-size:13px; margin-top:4px;">' . htmlspecialchars($tipoLabel, ENT_QUOTES, 'UTF-8') . '</p>
         </div>
         <p>Olá, <strong>' . htmlspecialchars($nomeUsuario, ENT_QUOTES, 'UTF-8') . '</strong>,</p>

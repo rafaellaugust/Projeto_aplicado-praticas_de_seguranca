@@ -2,7 +2,7 @@
 
 <footer class="footer mt-auto py-3 text-center text-secondary border-top border-dark" style="background: #0f172a; font-size: 0.85rem;">
     <div class="container">
-        <span>MikroTik Pay System &copy; <?= date('Y') ?> - Todos os direitos reservados. Integração MikroTik RouterOS & WhatsApp OpenWA.</span>
+        <span><?= htmlspecialchars(getEmpresaNome()) ?> &copy; <?= date('Y') ?> - Todos os direitos reservados. Integração MikroTik RouterOS & WhatsApp OpenWA.</span>
     </div>
 </footer>
 
