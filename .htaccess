@@ -1,0 +1,69 @@
+# ==============================================================================
+# .htaccess - Spaço Nett / MikroTik Pay
+# URLs Limpas, Proteção de Cabeçalhos e Ocultação da Estrutura Interna
+# ==============================================================================
+
+# Desabilitar listagem de diretórios
+Options -Indexes
+
+# Seguir links simbólicos
+Options +FollowSymLinks
+
+# UTF-8 padrão
+AddDefaultCharset UTF-8
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /
+
+    # 1. Proteger arquivos confidenciais e dotfiles
+    RewriteRule ^(\.git|\.env|composer\.|package\.|config\.php|schema.*\.sql|.*\.log) - [F,L,NC]
+
+    # 2. Impedir listagem ou acesso direto aos includes que não são páginas
+    RewriteRule ^src/ - [F,L,NC]
+    RewriteRule ^(admin|cliente)/header\.php$ - [F,L,NC]
+    RewriteRule ^(admin|cliente)/footer\.php$ - [F,L,NC]
+
+    # 3. Aliases Limpos Principais (Atalhos sem pasta e sem .php)
+    # Acesso do Cliente
+    RewriteRule ^login/?$ cliente/login.php [L,QSA]
+    RewriteRule ^recuperar-senha/?$ cliente/recuperar-senha.php [L,QSA]
+    RewriteRule ^painel/?$ cliente/index.php [L,QSA]
+    RewriteRule ^fatura/([0-9]+)/?$ cliente/fatura.php?id=$1 [L,QSA]
+    RewriteRule ^historico/?$ cliente/historico.php [L,QSA]
+    RewriteRule ^perfil/?$ cliente/perfil.php [L,QSA]
+    RewriteRule ^suporte/?$ cliente/suporte.php [L,QSA]
+    RewriteRule ^sair/?$ cliente/logout.php [L,QSA]
+
+    # Acesso do Administrador
+    RewriteRule ^admin/?$ admin/index.php [L,QSA]
+    RewriteRule ^admin/login/?$ admin/login.php [L,QSA]
+    RewriteRule ^admin/recuperar-senha/?$ admin/recuperar-senha.php [L,QSA]
+    RewriteRule ^admin/sair/?$ admin/logout.php [L,QSA]
+
+    # 4. Ocultação genérica de extensão .php para qualquer pasta (cliente/, admin/, cron/, payment/, webhook/)
+    # Se o arquivo .php correspondente existir, executa internamente sem precisar do .php na URL
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME}.php -f
+    RewriteRule ^(.*)$ $1.php [L,QSA]
+
+    # Se a URL solicitada for um arquivo direto dentro de admin ou cliente sem extensão
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{DOCUMENT_ROOT}/admin/$1.php -f
+    RewriteRule ^admin/([^/]+)/?$ admin/$1.php [L,QSA]
+
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{DOCUMENT_ROOT}/cliente/$1.php -f
+    RewriteRule ^cliente/([^/]+)/?$ cliente/$1.php [L,QSA]
+
+</IfModule>
+
+# Proteções adicionais contra injeção e acessos maliciosos
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-XSS-Protection "1; mode=block"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
