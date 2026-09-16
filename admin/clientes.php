@@ -18,17 +18,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $endereco = sanitize($_POST['endereco'] ?? '');
     $pppoeUsuario = sanitize($_POST['pppoe_usuario'] ?? '');
     $pppoeSenha = $_POST['pppoe_senha'] ?? '';
+    $senhaPortal = trim($_POST['senha_portal'] ?? '');
     $planoId = !empty($_POST['plano_id']) ? (int)$_POST['plano_id'] : null;
     $vencimentoDia = (int)($_POST['vencimento_dia'] ?? 10);
     $sincronizarMikrotik = isset($_POST['sincronizar_mikrotik']) ? 1 : 0;
 
     if ($nome && $cpfCnpj && $whatsapp && $pppoeUsuario) {
         try {
+            $senhaHash = !empty($senhaPortal) ? password_hash($senhaPortal, PASSWORD_DEFAULT) : null;
+            $primeiroAcesso = !empty($senhaPortal) ? 0 : 1;
+
             $stmt = $db->prepare("
-                INSERT INTO clientes (nome, cpf_cnpj, whatsapp, email, endereco, pppoe_usuario, pppoe_senha, plano_id, vencimento_dia, sincronizado_mikrotik) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO clientes (nome, cpf_cnpj, whatsapp, email, endereco, pppoe_usuario, pppoe_senha, senha, primeiro_acesso, plano_id, vencimento_dia, sincronizado_mikrotik) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
-            $stmt->execute([$nome, $cpfCnpj, $whatsapp, $email, $endereco, $pppoeUsuario, $pppoeSenha, $planoId, $vencimentoDia, $sincronizarMikrotik]);
+            $stmt->execute([$nome, $cpfCnpj, $whatsapp, $email, $endereco, $pppoeUsuario, $pppoeSenha, $senhaHash, $primeiroAcesso, $planoId, $vencimentoDia, $sincronizarMikrotik]);
             $clienteId = $db->lastInsertId();
 
             if ($sincronizarMikrotik && $planoId) {
@@ -60,6 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $endereco = sanitize($_POST['endereco'] ?? '');
     $pppoeUsuario = sanitize($_POST['pppoe_usuario'] ?? '');
     $pppoeSenha = $_POST['pppoe_senha'] ?? '';
+    $senhaPortal = trim($_POST['senha_portal'] ?? '');
     $planoId = !empty($_POST['plano_id']) ? (int)$_POST['plano_id'] : null;
     $vencimentoDia = (int)($_POST['vencimento_dia'] ?? 10);
     $status = sanitize($_POST['status'] ?? 'ativo');
@@ -88,6 +93,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 WHERE id = ?
             ");
             $stmt->execute([$nome, $cpfCnpj, $whatsapp, $email, $endereco, $pppoeUsuario, $pppoeSenha, $planoId, $vencimentoDia, $status, $id]);
+
+            // Se o admin informou nova senha do portal para o assinante
+            if (!empty($senhaPortal)) {
+                $senhaHash = password_hash($senhaPortal, PASSWORD_DEFAULT);
+                $db->prepare("UPDATE clientes SET senha = ?, primeiro_acesso = 0 WHERE id = ?")->execute([$senhaHash, $id]);
+            }
 
             // 3. Sincronização inteligente com o MikroTik
             $roteadorId = !empty($cliAtual['roteador_id']) ? (int)$cliAtual['roteador_id'] : 1;
@@ -267,6 +278,16 @@ if (!empty($params)) {
                             <td>
                                 <strong><?= sanitize($c['nome']) ?></strong><br>
                                 <span class="text-secondary small">CPF: <?= sanitize($c['cpf_cnpj']) ?></span>
+                                <?php if (!empty($c['email'])): ?>
+                                    <small class="text-secondary d-block" style="font-size: 11px;"><i class="fa-regular fa-envelope me-1"></i><?= sanitize($c['email']) ?></small>
+                                <?php endif; ?>
+                                <div class="mt-1">
+                                    <?php if (!empty($c['senha'])): ?>
+                                        <span class="badge bg-success-subtle text-success border border-success-subtle" style="font-size: 10px;"><i class="fa-solid fa-lock me-1"></i>Senha Própria</span>
+                                    <?php else: ?>
+                                        <span class="badge bg-warning-subtle text-warning border border-warning-subtle" style="font-size: 10px;" title="Senha padrão de primeiro acesso é o CPF"><i class="fa-solid fa-key me-1"></i>Padrão (CPF)</span>
+                                    <?php endif; ?>
+                                </div>
                             </td>
                             <td>
                                 <a href="https://wa.me/<?= WhatsAppService::formatPhone($c['whatsapp']) ?>" target="_blank" class="text-success text-decoration-none">
@@ -357,6 +378,11 @@ if (!empty($params)) {
                                 <option value="20">Dia 20</option>
                             </select>
                         </div>
+                        <div class="col-md-12">
+                            <label class="form-label small text-secondary"><i class="fa-solid fa-key me-1 text-warning"></i>Senha de Acesso ao Portal (Assinante)</label>
+                            <input type="text" name="senha_portal" class="form-control-custom" placeholder="Deixe em branco para usar o CPF como senha inicial">
+                            <small class="text-secondary" style="font-size: 11px;">O cliente usará esta senha para acessar o portal com E-mail, Telefone (WhatsApp) ou CPF.</small>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer border-secondary">
@@ -428,6 +454,11 @@ if (!empty($params)) {
                                 <option value="10">Dia 10</option>
                                 <option value="20">Dia 20</option>
                             </select>
+                        </div>
+                        <div class="col-md-12">
+                            <label class="form-label small text-secondary"><i class="fa-solid fa-key me-1 text-warning"></i>Nova Senha de Acesso ao Portal (Assinante)</label>
+                            <input type="text" name="senha_portal" class="form-control-custom" placeholder="Deixe em branco para manter a senha atual">
+                            <small class="text-secondary" style="font-size: 11px;">Preencha apenas caso deseje alterar a senha de login deste assinante na plataforma.</small>
                         </div>
                     </div>
                 </div>

@@ -7,6 +7,13 @@ SessionGuard::init();
 Security::sendSecurityHeaders();
 
 $erro = '';
+$sucessoMsg = isset($_GET['recuperado']) ? 'Sua senha foi redefinida com sucesso! Faça login com sua nova credencial.' : '';
+
+$db = Database::getInstance();
+$semSenhaAtivado = false;
+try {
+    $semSenhaAtivado = (bool)$db->query("SELECT client_login_no_password FROM security_settings LIMIT 1")->fetchColumn();
+} catch (Exception $e) {}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!Security::validateCsrfToken()) {
@@ -22,27 +29,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $erro = 'Seu IP está bloqueado por motivos de segurança.';
         } elseif (!Security::checkRateLimit($ip, 'login', 5, 15)) {
             $erro = 'Muitas tentativas. Tente novamente em 15 minutos.';
-        } elseif ($loginInput && $senha) {
-            $cleanCpf = preg_replace('/[^0-9]/', '', $loginInput);
+        } elseif ($loginInput && ($senha || $semSenhaAtivado)) {
+            $cleanInput = preg_replace('/[^0-9]/', '', $loginInput);
+            $waClean = (strlen($cleanInput) >= 10 && substr($cleanInput, 0, 2) === '55') ? substr($cleanInput, 2) : $cleanInput;
 
-            $db = Database::getInstance();
             $stmt = $db->prepare("
                 SELECT * FROM clientes 
-                WHERE pppoe_usuario = ? OR cpf_cnpj = ? OR whatsapp = ? 
+                WHERE email = ? 
+                   OR pppoe_usuario = ? 
+                   OR cpf_cnpj = ? 
+                   OR REPLACE(REPLACE(REPLACE(cpf_cnpj, '.', ''), '-', ''), '/', '') = ?
+                   OR whatsapp = ? 
+                   OR whatsapp = ? 
+                   OR (LENGTH(?) >= 8 AND SUBSTRING(whatsapp, -8) = SUBSTRING(?, -8))
                 LIMIT 1
             ");
-            $stmt->execute([$loginInput, $cleanCpf ?: $loginInput, $loginInput]);
+            $stmt->execute([
+                $loginInput,
+                $loginInput,
+                $loginInput,
+                $cleanInput ?: $loginInput,
+                $loginInput,
+                $waClean ?: $loginInput,
+                $cleanInput ?: '0',
+                $cleanInput ?: '0'
+            ]);
             $cliente = $stmt->fetch();
 
             if ($cliente) {
                 $senhaValida = false;
                 
-                if ($cliente['senha'] === null || $cliente['primeiro_acesso'] == 1) {
+                // 1. Modo de Teste Rápido (Segurança Reduzida)
+                if ($semSenhaAtivado) {
+                    $senhaValida = true;
+                }
+                // 2. Primeiro acesso ou senha não definida (usa CPF)
+                elseif ($cliente['senha'] === null || $cliente['primeiro_acesso'] == 1) {
                     $cpfClienteLimpo = preg_replace('/[^0-9]/', '', $cliente['cpf_cnpj']);
                     if ($senha === $cpfClienteLimpo || $senha === $cliente['cpf_cnpj']) {
                         $senhaValida = true;
                         
-                        // Atualiza para não ser mais primeiro acesso, para compatibilidade
+                        // Atualiza para não ser mais primeiro acesso
                         $stmtUpdate = $db->prepare("UPDATE clientes SET primeiro_acesso = 0 WHERE id = ?");
                         $stmtUpdate->execute([$cliente['id']]);
                         
@@ -51,11 +78,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $erro = 'Primeiro acesso: Sua senha padrão é o seu CPF (somente números).';
                         Security::recordAttempt($ip, 'login', false, $loginInput, 'cliente');
                     }
-                } else {
+                } 
+                // 3. Verificação normal de senha cadastrada na plataforma
+                else {
                     if (password_verify($senha, $cliente['senha'])) {
                         $senhaValida = true;
                     } else {
-                        $erro = 'Senha incorreta.';
+                        $erro = 'Senha incorreta. Caso tenha esquecido, utilize o link de recuperação abaixo.';
                         Security::recordAttempt($ip, 'login', false, $loginInput, 'cliente');
                     }
                 }
@@ -69,9 +98,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     Security::recordAttempt($ip, 'login', true, $loginInput, 'cliente');
                     Security::trustCurrentDevice((int)$cliente['id'], 'cliente');
 
-                    Database::log('auth_cliente', "Cliente logou no portal: {$cliente['nome']} ({$cliente['pppoe_usuario']})", [
+                    Database::log('auth_cliente', "Cliente logou no portal: {$cliente['nome']} ({$cliente['pppoe_usuario']})" . ($semSenhaAtivado ? " [Modo Sem Senha]" : ""), [
                         'cliente_id' => $cliente['id'],
-                        'ip' => $ip
+                        'ip' => $ip,
+                        'modo' => $semSenhaAtivado ? 'sem_senha' : 'com_senha'
                     ]);
 
                     header('Location: index.php');
@@ -82,7 +112,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 Database::log('auth_cliente_falha', "Tentativa de login no portal cliente falhou: {$loginInput}", [
                     'ip' => $ip
                 ]);
-                $erro = 'Assinante não encontrado.';
+                $erro = 'Assinante não encontrado com os dados informados (E-mail, Telefone ou CPF).';
             }
         } else {
             $erro = 'Informe seu usuário e senha.';
@@ -546,10 +576,23 @@ foreach ($allowedExtensions as $ext) {
             <!-- Title (Visible only on desktop views) -->
             <h3 class="form-title d-none d-lg-block">Área do Cliente</h3>
             
+            <!-- Success feedback -->
+            <?php if ($sucessoMsg): ?>
+                <div class="alert alert-success py-2 text-center" role="alert" style="background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); color: #34d399; font-size: 0.85rem; border-radius: 10px; margin-bottom: 1.5rem;">
+                    <i class="fa-solid fa-circle-check me-1"></i> <?= $sucessoMsg ?>
+                </div>
+            <?php endif; ?>
+
             <!-- Error feedback -->
             <?php if ($erro): ?>
                 <div class="alert alert-danger py-2 text-center" role="alert">
                     <i class="fa-solid fa-triangle-exclamation me-1"></i> <?= $erro ?>
+                </div>
+            <?php endif; ?>
+
+            <?php if ($semSenhaAtivado): ?>
+                <div class="p-2 mb-3 rounded text-center" style="background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.3); color: #fbbf24; font-size: 0.82rem;">
+                    <i class="fa-solid fa-flask me-1"></i> <strong>Modo de Teste Ativo:</strong> Digite apenas seu E-mail, Telefone ou CPF para acessar (senha desnecessária).
                 </div>
             <?php endif; ?>
             
@@ -566,11 +609,11 @@ foreach ($allowedExtensions as $ext) {
                 </div>
                 
                 <!-- Password Group -->
-                <div class="mb-3">
+                <div class="mb-3" <?= $semSenhaAtivado ? 'style="display:none;"' : '' ?>>
                     <label class="form-label input-label"><i class="fa-solid fa-lock"></i> Senha</label>
                     <div class="input-group-custom">
                         <span class="input-icon"><i class="fa-solid fa-key"></i></span>
-                        <input type="password" name="senha" class="login-input" placeholder="Sua senha" required>
+                        <input type="password" name="senha" class="login-input" placeholder="Sua senha" <?= $semSenhaAtivado ? '' : 'required' ?>>
                     </div>
                     <small class="text-muted mt-2 d-block text-center" style="font-size: 0.8rem;">Primeiro acesso? Sua senha padrão é o seu CPF.</small>
                 </div>

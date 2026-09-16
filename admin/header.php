@@ -105,9 +105,9 @@ $mikrotikOnline = $mikrotikApi->testConnection();
                 <li class="nav-item"><a class="nav-link text-light fw-medium" href="roteadores.php"><i class="fa-solid fa-server me-1 text-warning"></i> MK</a></li>
                 <li class="nav-item"><a class="nav-link text-light fw-medium" href="disparos_whatsapp.php"><i class="fa-brands fa-whatsapp me-1 text-success"></i> Disparos WA</a></li>
                 <li class="nav-item"><a class="nav-link text-light fw-medium" href="configuracoes.php"><i class="fa-solid fa-sliders me-1 text-info"></i> Config</a></li>
-                <li class="nav-item"><a class="nav-link text-light fw-medium" href="logs.php"><i class="fa-solid fa-clipboard-list me-1 text-danger"></i> Logs</a></li>
-                <li class="nav-item"><a class="nav-link text-light fw-medium" href="seguranca.php"><i class="fa-solid fa-shield-halved me-1 text-success"></i> Segurança</a></li>
-            </ul>
+                <li class="nav-item"><a class="nav-link text-light fw-medium" href="logs.php"><i class="fa-solid fa-clipboard-list me-1 text-warning"></i> Logs</a></li>
+                <li class="nav-item"><a class="nav-link text-light fw-medium" href="seguranca.php"><i class="fa-solid fa-shield-halved me-1 text-danger"></i> Segurança</a></li>
+             </ul>
 
             <div class="d-flex align-items-center gap-3 ms-xl-3">
                 <div class="status-stack d-flex flex-column gap-1 align-items-end">

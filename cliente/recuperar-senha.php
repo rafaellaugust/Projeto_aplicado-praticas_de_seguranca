@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /**
  * @file cliente/recuperar-senha.php
  * @brief Recuperação de senha do assinante/cliente
@@ -25,46 +25,68 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $identificador = trim($_POST['identificador'] ?? '');
 
             if (empty($identificador)) {
-                $erro = 'Informe seu CPF, usuário PPPoE ou e-mail cadastrado.';
+                $erro = 'Informe seu E-mail, Telefone (WhatsApp) ou CPF cadastrado.';
             } else {
-                $cpfLimpo = preg_replace('/[^0-9]/', '', $identificador);
+                $cleanInput = preg_replace('/[^0-9]/', '', $identificador);
+                $waClean = (strlen($cleanInput) >= 10 && substr($cleanInput, 0, 2) === '55') ? substr($cleanInput, 2) : $cleanInput;
 
                 $stmt = $db->prepare("
-                    SELECT id, nome, email FROM clientes
-                    WHERE cpf_cnpj = ? OR pppoe_usuario = ? OR email = ?
+                    SELECT id, nome, email, whatsapp FROM clientes
+                    WHERE email = ? 
+                       OR cpf_cnpj = ? 
+                       OR REPLACE(REPLACE(REPLACE(cpf_cnpj, '.', ''), '-', ''), '/', '') = ?
+                       OR whatsapp = ? 
+                       OR whatsapp = ? 
+                       OR (LENGTH(?) >= 8 AND SUBSTRING(whatsapp, -8) = SUBSTRING(?, -8))
+                       OR pppoe_usuario = ?
                     LIMIT 1
                 ");
                 $stmt->execute([
-                    $cpfLimpo ?: $identificador,
                     $identificador,
+                    $identificador,
+                    $cleanInput ?: $identificador,
+                    $identificador,
+                    $waClean ?: $identificador,
+                    $cleanInput ?: '0',
+                    $cleanInput ?: '0',
                     $identificador
                 ]);
                 $cliente = $stmt->fetch();
 
-                if ($cliente && !empty($cliente['email'])) {
-                    $db->prepare("UPDATE password_resets SET used = 1 WHERE email = ? AND user_type = 'cliente' AND used = 0")->execute([$cliente['email']]);
+                if ($cliente) {
+                    if (!empty($cliente['email'])) {
+                        $db->prepare("UPDATE password_resets SET used = 1 WHERE email = ? AND user_type = 'cliente' AND used = 0")->execute([$cliente['email']]);
 
-                    try {
-                        $token = bin2hex(random_bytes(32));
-                    } catch (Exception $e) {
-                        $token = bin2hex(openssl_random_pseudo_bytes(32));
+                        try {
+                            $token = bin2hex(random_bytes(32));
+                        } catch (Exception $e) {
+                            $token = bin2hex(openssl_random_pseudo_bytes(32));
+                        }
+                        $tokenHash = hash('sha256', $token);
+
+                        $db->prepare("
+                            INSERT INTO password_resets (email, user_type, token_hash, expires_at, used, created_at)
+                            VALUES (?, 'cliente', ?, DATE_ADD(NOW(), INTERVAL 15 MINUTE), 0, NOW())
+                        ")->execute([$cliente['email'], $tokenHash]);
+
+                        $link = BASE_URL . '/cliente/recuperar-senha.php?token=' . rawurlencode($token);
+                        $enviou = Security::sendPasswordResetEmail($cliente['email'], $cliente['nome'], $link, 'cliente');
+
+                        Database::log('auth_cliente', "Solicitação de recuperação de senha do cliente: {$cliente['email']}", [
+                            'cliente_id' => $cliente['id'],
+                            'ip' => $_SERVER['REMOTE_ADDR'] ?? 'desconhecido',
+                            'email_enviado' => $enviou ? 'sucesso' : 'falha'
+                        ]);
+
+                        $emailParts = explode('@', $cliente['email']);
+                        $emailMasc = substr($emailParts[0], 0, 3) . '***@' . ($emailParts[1] ?? '');
+                        $sucesso = "As instruções de redefinição de senha foram enviadas para o seu e-mail cadastrado ({$emailMasc}). Verifique sua caixa de entrada e a pasta de spam.";
+                    } else {
+                        $erro = 'Encontramos seu cadastro, porém você ainda não possui um e-mail cadastrado para recebimento do link de recuperação. Por favor, entre em contato com nosso atendimento via WhatsApp para cadastrar seu e-mail ou definir uma nova senha.';
                     }
-                    $tokenHash = hash('sha256', $token);
-
-                    $db->prepare("
-                        INSERT INTO password_resets (email, user_type, token_hash, expires_at, used, created_at)
-                        VALUES (?, 'cliente', ?, DATE_ADD(NOW(), INTERVAL 15 MINUTE), 0, NOW())
-                    ")->execute([$cliente['email'], $tokenHash]);
-
-                    $link = BASE_URL . '/cliente/recuperar-senha.php?token=' . rawurlencode($token);
-                    Security::sendPasswordResetEmail($cliente['email'], $cliente['nome'], $link, 'cliente');
-
-                    Database::log('auth_cliente', "Solicitação de recuperação de senha do cliente: {$cliente['email']}", [
-                        'cliente_id' => $cliente['id'],
-                        'ip' => $_SERVER['REMOTE_ADDR'] ?? 'desconhecido'
-                    ]);
+                } else {
+                    $sucesso = 'Se seus dados estiverem cadastrados e você possuir um e-mail em nosso sistema, as instruções foram enviadas.';
                 }
-                $sucesso = 'Se seus dados estiverem cadastrados e você possuir um e-mail em nosso sistema, as instruções foram enviadas.';
             }
         } else {
             $tokenRecebido = trim($_POST['token'] ?? '');
@@ -220,14 +242,14 @@ foreach ($allowedExtensions as $ext) {
 
                         <div class="mb-4">
                             <label class="form-label input-label">
-                                <i class="fa-solid fa-user"></i> CPF, Usuário PPPoE ou E-mail
+                                <i class="fa-solid fa-user"></i> E-mail, Telefone (WhatsApp) ou CPF
                             </label>
                             <div class="input-group-custom">
                                 <span class="input-icon"><i class="fa-regular fa-id-card"></i></span>
-                                <input type="text" name="identificador" class="login-input" placeholder="Digite seu CPF ou usuário" required autofocus value="<?= htmlspecialchars($_POST['identificador'] ?? '') ?>">
+                                <input type="text" name="identificador" class="login-input" placeholder="Digite seu e-mail, telefone ou CPF" required autofocus value="<?= htmlspecialchars($_POST['identificador'] ?? '') ?>">
                             </div>
                             <small style="color: var(--text-gray); font-size: 0.8rem; display: block; margin-top: 6px;">
-                                O link para redefinição de senha será enviado ao seu e-mail cadastrado.
+                                O link de confirmação para redefinição será enviado ao seu e-mail cadastrado.
                             </small>
                         </div>
 

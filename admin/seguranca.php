@@ -59,10 +59,15 @@ try {
       `require_2fa_admin` tinyint DEFAULT 1,
       `geo_check_enabled` tinyint DEFAULT 0,
       `device_check_enabled` tinyint DEFAULT 1,
+      `client_login_no_password` tinyint DEFAULT 0,
       `admin_ip_whitelist` text,
       `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       PRIMARY KEY (`id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    try {
+        $db->exec("ALTER TABLE `security_settings` ADD COLUMN IF NOT EXISTS `client_login_no_password` tinyint DEFAULT 0");
+    } catch (Exception $e) {}
 
     $db->exec("INSERT IGNORE INTO `security_settings` (`id`) VALUES (1)");
 } catch (Exception $e) {}
@@ -125,17 +130,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $require_2fa_admin = isset($_POST['require_2fa_admin']) ? 1 : 0;
             $geo_check_enabled = isset($_POST['geo_check_enabled']) ? 1 : 0;
             $device_check_enabled = isset($_POST['device_check_enabled']) ? 1 : 0;
+            $client_login_no_password = isset($_POST['client_login_no_password']) ? 1 : 0;
             $admin_ip_whitelist = sanitize($_POST['admin_ip_whitelist'] ?? '');
             
             try {
                 $stmt = $db->prepare("
                     UPDATE security_settings 
-                    SET max_login_attempts = ?, lockout_duration_minutes = ?, session_timeout_minutes = ?, trusted_device_days = ?, require_2fa_admin = ?, geo_check_enabled = ?, device_check_enabled = ?, admin_ip_whitelist = ?
+                    SET max_login_attempts = ?, lockout_duration_minutes = ?, session_timeout_minutes = ?, 
+                        trusted_device_days = ?, require_2fa_admin = ?, geo_check_enabled = ?, 
+                        device_check_enabled = ?, client_login_no_password = ?, admin_ip_whitelist = ?
                 ");
                 $stmt->execute([
                     $max_login_attempts, $lockout_duration_minutes, $session_timeout_minutes,
                     $trusted_device_days, $require_2fa_admin, $geo_check_enabled,
-                    $device_check_enabled, $admin_ip_whitelist
+                    $device_check_enabled, $client_login_no_password, $admin_ip_whitelist
                 ]);
                 Database::log('admin_seguranca', "Configurações de segurança atualizadas");
                 $sucesso = "Configurações salvas com sucesso.";
@@ -190,6 +198,7 @@ $s = array_merge([
     'require_2fa_admin' => 0,
     'geo_check_enabled' => 0,
     'device_check_enabled' => 0,
+    'client_login_no_password' => 0,
     'admin_ip_whitelist' => ''
 ], (array)$settings);
 
@@ -469,6 +478,15 @@ $s = array_merge([
                 <div class="form-check form-switch mb-2">
                     <input class="form-check-input" type="checkbox" role="switch" name="device_check_enabled" id="devcheck" value="1" <?= $s['device_check_enabled'] ? 'checked' : '' ?>>
                     <label class="form-check-label text-white" for="devcheck">Ativar Verificação de Dispositivo (Aviso em novo navegador/aparelho)</label>
+                </div>
+                <div class="form-check form-switch mt-3 p-3 rounded" style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.25);">
+                    <input class="form-check-input ms-0 me-2" type="checkbox" role="switch" name="client_login_no_password" id="clilogin" value="1" <?= $s['client_login_no_password'] ? 'checked' : '' ?>>
+                    <label class="form-check-label text-warning fw-bold" for="clilogin">
+                        <i class="fa-solid fa-flask me-1"></i>Modo de Teste Rápido: Permitir Acesso do Cliente Sem Senha
+                    </label>
+                    <div class="small text-secondary mt-1">
+                        Quando ativado, o assinante pode acessar a Central do Assinante informando apenas seu E-mail, Telefone (WhatsApp) ou CPF, sem necessidade de senha. Ideal para homologação e testes ágeis da plataforma.
+                    </div>
                 </div>
             </div>
             
