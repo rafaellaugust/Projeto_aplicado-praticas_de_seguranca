@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost:3306
--- Tempo de geração: 16-Set-2026 às 11:25
+-- Tempo de geração: 16-Set-2026 às 12:17
 -- Versão do servidor: 8.0.46
 -- versão do PHP: 8.1.34
 
@@ -43,7 +43,7 @@ CREATE TABLE `active_sessions` (
 --
 
 INSERT INTO `active_sessions` (`id`, `session_id`, `user_id`, `user_type`, `ip_address`, `user_agent`, `last_activity`, `created_at`) VALUES
-(3, 'tf5s4n37sqsh34vsj60ddsk1kq', 1, 'admin', '186.235.151.9', 'Windows 10/11 - Chrome', '2026-09-16 12:23:52', '2026-09-16 12:23:52');
+(4, '3ij9v7uces3tagsan4m6oufafr', 1, 'admin', '186.235.151.9', 'Windows 10/11 - Chrome', '2026-09-16 13:07:57', '2026-09-16 13:07:57');
 
 -- --------------------------------------------------------
 
@@ -69,7 +69,7 @@ CREATE TABLE `administradores` (
 --
 
 INSERT INTO `administradores` (`id`, `nome`, `email`, `senha`, `totp_secret`, `totp_enabled`, `backup_codes`, `last_login`, `last_ip`, `criado_em`) VALUES
-(1, 'Administrador', 'admin@admin.com', '$2y$10$3WEoJyCcaylDvtOvwSUY7OPhmrKnpANxqFfxnuiC/qGVykekwKWg.', 'zRwpu9FahFvG2qNJ/yyIoW9KaWloemg5MThvc0lYemQrdnhZQXJNZnlqMzJiT0cyeFUvYUVLVFh4N09NRlhUMng5NVMyTFFSZnMrR2V5UHg=', 1, '[\"b6ed-4261\",\"24ad-5fb7\",\"170a-3344\",\"6d15-a358\",\"b617-30e4\",\"d7e5-b3cf\",\"4d8b-b482\",\"6c9b-1adb\"]', '2026-09-16 12:23:52', '186.235.151.9', '2026-08-19 15:50:59');
+(1, 'Administrador', 'admin@admin.com', '$2y$10$3WEoJyCcaylDvtOvwSUY7OPhmrKnpANxqFfxnuiC/qGVykekwKWg.', 'zRwpu9FahFvG2qNJ/yyIoW9KaWloemg5MThvc0lYemQrdnhZQXJNZnlqMzJiT0cyeFUvYUVLVFh4N09NRlhUMng5NVMyTFFSZnMrR2V5UHg=', 1, '[\"b6ed-4261\",\"24ad-5fb7\",\"170a-3344\",\"6d15-a358\",\"b617-30e4\",\"d7e5-b3cf\",\"4d8b-b482\",\"6c9b-1adb\"]', '2026-09-16 13:07:57', '186.235.151.9', '2026-08-19 15:50:59');
 
 -- --------------------------------------------------------
 
@@ -116,7 +116,7 @@ CREATE TABLE `clientes` (
 --
 
 INSERT INTO `clientes` (`id`, `nome`, `cpf_cnpj`, `whatsapp`, `email`, `endereco`, `pppoe_usuario`, `pppoe_senha`, `senha`, `primeiro_acesso`, `plano_id`, `roteador_id`, `status`, `vencimento_dia`, `data_expiracao`, `sincronizado_mikrotik`, `criado_em`) VALUES
-(184, 'ppp8', '99991445196', '8299334425', '', '', 'ppp8', '12345', NULL, 1, 10, 1, 'ativo', 10, NULL, 1, '2026-09-08 13:56:29'),
+(184, 'ppp8', '99991445196', '8299334425', 'rafaell.augustodaconceicao@gmail.com', '', 'ppp8', '12345', '$2y$10$LPCr7emjWx1ASjMUU1TJ5exdngDiULH6ISTye5YRDqKv7UVD/kTk.', 0, 10, 1, 'ativo', 10, NULL, 1, '2026-09-08 13:56:29'),
 (185, 'ppp7', '99974716599', '8296934434', '', '', 'ppp7', '12345', NULL, 1, 3, 1, 'ativo', 10, '2026-10-10', 1, '2026-09-08 13:56:29');
 
 -- --------------------------------------------------------
@@ -184,7 +184,7 @@ CREATE TABLE `configuracoes` (
 --
 
 INSERT INTO `configuracoes` (`id`, `empresa_nome`, `empresa_cnpj`, `empresa_telefone`, `wa_api_url`, `wa_session`, `wa_token`, `wa_status`, `telegram_bot_token`, `telegram_chat_id`, `telegram_ativo`, `gateway_provider`, `mp_public_key`, `mp_access_token`, `mp_client_id`, `mp_client_secret`, `mp_sandbox`, `asaas_api_key`, `pix_chave_estatica`, `pix_nome_beneficiario`, `pix_cidade_beneficiario`, `webhook_secret`, `atualizado_em`, `webhook_callback_url`, `webhook_callback_ativo`, `wa_disparo_hora`, `wa_disparo_delay`, `wa_disparo_ativo`, `wa_disparo_dias`, `wa_ultimo_disparo`, `wa_modelo_mensagem`, `wa_delay_pix`, `wa_modelo_confirmacao`, `wa_aviso_ativo`, `wa_aviso_tolerancia`, `wa_modelo_aviso`, `app_url`, `backup_ativo`, `backup_hora`, `backup_frequencia`, `backup_manter_qtd`, `backup_notificar_tg`, `backup_compactar_gz`, `backup_ultimo_em`, `smtp_host`, `smtp_port`, `smtp_user`, `smtp_pass`, `smtp_from`, `recaptcha_site_key`, `recaptcha_secret_key`) VALUES
-(1, 'SpacoNett', '', '82999334425', 'http://aplicacao.spaconett.com/whatsapp', 'default', '81660848', 0, '1953035198:AAH93nW4LVv1aQ85doi0YGvkSRFWPeFSFG0', '-494177619', 1, 'mercadopago', '', 'APP_USR-5748377013323719-120822-e8a932a0e159f5aa5925cab3764e776d-142008628', '', '', 0, '', '82999334425', 'RAFAEL AUGUSTO DA CONCEICAO', 'Arapiraca', 'secret123', '2026-09-16 10:05:30', 'https://api.telegram.org/bot1953035198:AAH93nW4LVv1aQ85doi0YGvkSRFWPeFSFG0/sendMessage?chat_id=-4605577181&amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;text=foi', 1, '12:34', 5, 1, 1, '2026-09-15', 'ðŸ”” *FATURA DISPONÃVEL - {EMPRESA_NOME}*\r\n\r\nOlÃ¡, *{NOME_CLIENTE}*!\r\nSua fatura de internet jÃ¡ estÃ¡ disponÃ­vel para pagamento.\r\n\r\nðŸ’° *Valor:* {VALOR_FATURA}\r\nðŸ“… *Vencimento:* {DATA_VENCIMENTO}\r\n\r\nðŸ”— *Acesse sua fatura online:* {LINK_FATURA}\r\n\r\nObrigado por utilizar nossos serviÃ§os!', 5, 'âœ… *PAGAMENTO CONFIRMADO!*\r\n\r\nOlÃ¡, *{NOME_CLIENTE}*!\r\nConfirmamos o recebimento do seu pagamento no valor de *{VALOR_FATURA}* referente Ã  fatura #{FATURA_ID}.\r\n\r\nðŸ”— *Acesse seu histÃ³rico de faturas online:* \r\nEm : https://aplicacao.spaconett.com\r\n\r\nSeu acesso Ã  internet continua ativo. Agradecemos a preferÃªncia!', 1, 5, 'âš ï¸ *AVISO DE VENCIMENTO - ALERTA DE BLOQUEIO*\r\n\r\nOlÃ¡, *{NOME_CLIENTE}*!\r\nIdentificamos que sua fatura no valor de *{VALOR_FATURA}* com vencimento em *{DATA_VENCIMENTO}* continua pendente.\r\n\r\nO seu acesso entrarÃ¡ em *bloqueio automÃ¡tico* caso o pagamento nÃ£o seja identificado.\r\n\r\nðŸ”— *Acesse sua fatura online:* {LINK_FATURA}\r\n\r\nPara evitar o suspenÃ§Ã£o do sinal, efetue o pagamento pelo PIX Copia e Cola abaixo:', 'https://aplicacao.spaconett.com', 1, '03:00', 'diario', 7, 1, 1, '2026-09-14 15:52:20', 'mail.spaconett.com', 587, 'spaconettirar', '22dnT5l7nH(;YO', 'spaconet@spaconett.com', '', '');
+(1, 'SpacoNett', '', '82999334425', 'http://aplicacao.spaconett.com/whatsapp', 'default', '81660848', 0, '1953035198:AAH93nW4LVv1aQ85doi0YGvkSRFWPeFSFG0', '-494177619', 1, 'mercadopago', '', 'APP_USR-5748377013323719-120822-e8a932a0e159f5aa5925cab3764e776d-142008628', '', '', 0, '', '82999334425', 'RAFAEL AUGUSTO DA CONCEICAO', 'Arapiraca', 'secret123', '2026-09-16 10:05:30', 'https://api.telegram.org/bot1953035198:AAH93nW4LVv1aQ85doi0YGvkSRFWPeFSFG0/sendMessage?chat_id=-4605577181&amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;text=foi', 1, '12:34', 5, 1, 1, '2026-09-15', 'ðŸ”” *FATURA DISPONÃVEL - {EMPRESA_NOME}*\r\n\r\nOlÃ¡, *{NOME_CLIENTE}*!\r\nSua fatura de internet jÃ¡ estÃ¡ disponÃ­vel para pagamento.\r\n\r\nðŸ’° *Valor:* {VALOR_FATURA}\r\nðŸ“… *Vencimento:* {DATA_VENCIMENTO}\r\n\r\nðŸ”— *Acesse sua fatura online:* {LINK_FATURA}\r\n\r\nObrigado por utilizar nossos serviÃ§os!', 5, 'âœ… *PAGAMENTO CONFIRMADO!*\r\n\r\nOlÃ¡, *{NOME_CLIENTE}*!\r\nConfirmamos o recebimento do seu pagamento no valor de *{VALOR_FATURA}* referente Ã  fatura #{FATURA_ID}.\r\n\r\nðŸ”— *Acesse seu histÃ³rico de faturas online:* \r\nEm : https://aplicacao.spaconett.com\r\n\r\nSeu acesso Ã  internet continua ativo. Agradecemos a preferÃªncia!', 1, 5, 'âš ï¸ *AVISO DE VENCIMENTO - ALERTA DE BLOQUEIO*\r\n\r\nOlÃ¡, *{NOME_CLIENTE}*!\r\nIdentificamos que sua fatura no valor de *{VALOR_FATURA}* com vencimento em *{DATA_VENCIMENTO}* continua pendente.\r\n\r\nO seu acesso entrarÃ¡ em *bloqueio automÃ¡tico* caso o pagamento nÃ£o seja identificado.\r\n\r\nðŸ”— *Acesse sua fatura online:* {LINK_FATURA}\r\n\r\nPara evitar o suspenÃ§Ã£o do sinal, efetue o pagamento pelo PIX Copia e Cola abaixo:', 'https://aplicacao.spaconett.com', 1, '03:00', 'diario', 7, 1, 1, '2026-09-14 15:52:20', 'mail.spaconett.com', 587, 'spaconet@spaconett.com', '22dnT5l7nH(;YO', 'spaconet@spaconett.com', '', '');
 
 -- --------------------------------------------------------
 
@@ -265,7 +265,9 @@ CREATE TABLE `login_attempts` (
 --
 
 INSERT INTO `login_attempts` (`id`, `ip_address`, `email_or_user`, `user_type`, `success`, `user_agent`, `geo_country`, `geo_city`, `device_fingerprint`, `created_at`) VALUES
-(3, '177.173.231.65', 'admin@admin.com', 'admin', 0, 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Mobile Safari/537.36', 'Brazil', 'Recife', '76c1b3b2e189ba63c3649cc9298a880e7854e74c06161f9c2271b08210f47589', '2026-09-16 09:36:30');
+(3, '177.173.231.65', 'admin@admin.com', 'admin', 0, 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Mobile Safari/537.36', 'Brazil', 'Recife', '76c1b3b2e189ba63c3649cc9298a880e7854e74c06161f9c2271b08210f47589', '2026-09-16 09:36:30'),
+(4, '186.235.151.9', '82999334425', 'cliente', 1, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36', 'Brazil', 'Arapiraca', 'b5b2ea1fa30e59ab51fc1cda5cbe9e1b51b32ab07985892d0916c1da91842db6', '2026-09-16 13:09:12'),
+(5, '186.235.151.9', '8299334425', 'cliente', 0, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36', 'Brazil', 'Arapiraca', 'b5b2ea1fa30e59ab51fc1cda5cbe9e1b51b32ab07985892d0916c1da91842db6', '2026-09-16 13:12:55');
 
 -- --------------------------------------------------------
 
@@ -1053,7 +1055,17 @@ INSERT INTO `logs` (`id`, `tipo`, `mensagem`, `detalhes`, `criado_em`) VALUES
 (1351, 'webhook', 'Consulta MP 178161926435 HTTP 200', '{\"resp\":\"{\\\"accounts_info\\\":null,\\\"acquirer_reconciliation\\\":[],\\\"additional_info\\\":{\\\"tracking_id\\\":\\\"platform:v1-whitelabel,so:ALL,type:N\\/A,security:none\\\"},\\\"authorization_code\\\":null,\\\"binary_mode\\\":false,\\\"brand_id\\\":null,\\\"build_version\\\":\\\"3.174.0-rc-4\\\",\\\"call_for_authorize_id\\\":null,\\\"callback_url\\\":null,\\\"captured\\\":true,\\\"card\\\":{},\\\"charges_details\\\":[{\\\"accounts\\\":{\\\"from\\\":\\\"collector\\\",\\\"to\\\":\\\"mp\\\"},\\\"amounts\\\":{\\\"original\\\":0.01,\\\"refunded\\\":0},\\\"client_id\\\":0,\\\"date_created\\\":\\\"2026-09-15T11:16:47.000-04:00\\\",\\\"external_charge_id\\\":\\\"01M2JT8PSRF6FVKQ3EP8BFSS40\\\",\\\"id\\\":\\\"178161926435-001\\\",\\\"last_updated\\\":\\\"2026-09-15T11:16:47.000-04:00\\\",\\\"metadata\\\":{\\\"reason\\\":\\\"\\\",\\\"source\\\":\\\"proc-svc-charges\\\",\\\"source_detail\\\":\\\"processing_fee_charge\\\"},\\\"name\\\":\\\"mercadopago_fee\\\",\\\"refund_charges\\\":[],\\\"reserve_id\\\":null,\\\"type\\\":\\\"fee\\\",\\\"update_charges\\\":[]}],\\\"charges_execution_info\\\":{\\\"internal_execution\\\":{\\\"date\\\":\\\"2026-09-15T11:16:47.041-04:00\\\",\\\"execution_id\\\":\\\"01M2JT8PRMH6DWAE808Y4AQGET\\\"}},\\\"collector_id\\\":142008628,\\\"corporation_id\\\":null,\\\"counter_currency\\\":null,\\\"coupon_amou\"}', '2026-09-16 12:23:36');
 INSERT INTO `logs` (`id`, `tipo`, `mensagem`, `detalhes`, `criado_em`) VALUES
 (1352, 'webhook', 'Consulta MP 178161926435 HTTP 200', '{\"resp\":\"{\\\"accounts_info\\\":null,\\\"acquirer_reconciliation\\\":[],\\\"additional_info\\\":{\\\"tracking_id\\\":\\\"platform:v1-whitelabel,so:ALL,type:N\\/A,security:none\\\"},\\\"authorization_code\\\":null,\\\"binary_mode\\\":false,\\\"brand_id\\\":null,\\\"build_version\\\":\\\"3.174.0-rc-4\\\",\\\"call_for_authorize_id\\\":null,\\\"callback_url\\\":null,\\\"captured\\\":true,\\\"card\\\":{},\\\"charges_details\\\":[{\\\"accounts\\\":{\\\"from\\\":\\\"collector\\\",\\\"to\\\":\\\"mp\\\"},\\\"amounts\\\":{\\\"original\\\":0.01,\\\"refunded\\\":0},\\\"client_id\\\":0,\\\"date_created\\\":\\\"2026-09-15T11:16:47.000-04:00\\\",\\\"external_charge_id\\\":\\\"01M2JT8PSRF6FVKQ3EP8BFSS40\\\",\\\"id\\\":\\\"178161926435-001\\\",\\\"last_updated\\\":\\\"2026-09-15T11:16:47.000-04:00\\\",\\\"metadata\\\":{\\\"reason\\\":\\\"\\\",\\\"source\\\":\\\"proc-svc-charges\\\",\\\"source_detail\\\":\\\"processing_fee_charge\\\"},\\\"name\\\":\\\"mercadopago_fee\\\",\\\"refund_charges\\\":[],\\\"reserve_id\\\":null,\\\"type\\\":\\\"fee\\\",\\\"update_charges\\\":[]}],\\\"charges_execution_info\\\":{\\\"internal_execution\\\":{\\\"date\\\":\\\"2026-09-15T11:16:47.041-04:00\\\",\\\"execution_id\\\":\\\"01M2JT8PRMH6DWAE808Y4AQGET\\\"}},\\\"collector_id\\\":142008628,\\\"corporation_id\\\":null,\\\"counter_currency\\\":null,\\\"coupon_amou\"}', '2026-09-16 12:23:36'),
-(1353, 'auth', 'Login de admin (dispositivo confiável): Administrador', '{\"ip\":\"186.235.151.9\"}', '2026-09-16 12:23:52');
+(1353, 'auth', 'Login de admin (dispositivo confiável): Administrador', '{\"ip\":\"186.235.151.9\"}', '2026-09-16 12:23:52'),
+(1354, 'auth', 'Logout efetuado pelo administrador: Administrador', '{\"ip\":\"186.235.151.9\"}', '2026-09-16 13:07:44'),
+(1355, 'auth', 'Login de admin (dispositivo confiável): Administrador', '{\"ip\":\"186.235.151.9\"}', '2026-09-16 13:07:57'),
+(1356, 'admin_seguranca', 'Configurações de segurança atualizadas', NULL, '2026-09-16 13:08:47'),
+(1357, 'auth_cliente', 'Cliente logou no portal: ppp8 (ppp8) [Modo Sem Senha]', '{\"cliente_id\":\"184\",\"ip\":\"186.235.151.9\",\"modo\":\"sem_senha\"}', '2026-09-16 13:09:12'),
+(1358, 'auth_cliente', 'Cliente deslogou do portal: ppp8', '{\"ip\":\"186.235.151.9\"}', '2026-09-16 13:09:22'),
+(1359, 'admin_seguranca', 'Configurações de segurança atualizadas', NULL, '2026-09-16 13:10:13'),
+(1360, 'admin_seguranca', 'Configurações de segurança atualizadas', NULL, '2026-09-16 13:11:22'),
+(1361, 'auth_cliente', 'Solicitação de recuperação de senha do cliente: rafaell.augustodaconceicao@gmail.com', '{\"cliente_id\":\"184\",\"ip\":\"186.235.151.9\",\"email_enviado\":\"falha\"}', '2026-09-16 13:13:47'),
+(1362, 'smtp_erro', 'Falha no teste de envio de e-mail SMTP para spaconet@spaconett.com: Senha SMTP rejeitada pelo servidor: 535 Incorrect authentication data\r\n', '{\"ip\":\"186.235.151.9\",\"admin_id\":\"1\",\"destinatario\":\"spaconet@spaconett.com\",\"host\":\"mail.spaconett.com\",\"porta\":\"587\",\"erro\":\"Senha SMTP rejeitada pelo servidor: 535 Incorrect authentication data\\r\\n\"}', '2026-09-16 13:17:06'),
+(1363, 'smtp_erro', 'Falha no teste de envio de e-mail SMTP para spaconet@spaconett.com: Senha SMTP rejeitada pelo servidor: 535 Incorrect authentication data', NULL, '2026-09-16 13:17:06');
 
 -- --------------------------------------------------------
 
@@ -1094,6 +1106,13 @@ CREATE TABLE `password_resets` (
   `used` tinyint(1) NOT NULL DEFAULT '0',
   `created_at` datetime DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+--
+-- Extraindo dados da tabela `password_resets`
+--
+
+INSERT INTO `password_resets` (`id`, `email`, `user_type`, `token_hash`, `expires_at`, `used`, `created_at`) VALUES
+(1, 'rafaell.augustodaconceicao@gmail.com', 'cliente', 'bbf8e01df530a232250e8e71914831805d1b22a59a89f7925f237bc35dd86bf8', '2026-09-16 13:28:47', 0, '2026-09-16 13:13:47');
 
 -- --------------------------------------------------------
 
@@ -1192,7 +1211,7 @@ CREATE TABLE `security_settings` (
 --
 
 INSERT INTO `security_settings` (`id`, `max_login_attempts`, `lockout_duration_minutes`, `auto_block_threshold`, `auto_block_duration_hours`, `session_timeout_minutes`, `trusted_device_days`, `require_2fa_admin`, `geo_check_enabled`, `device_check_enabled`, `client_login_no_password`, `admin_ip_whitelist`, `updated_at`) VALUES
-(1, 5, 15, 10, 24, 30, 30, 1, 0, 1, 0, NULL, '2026-09-15 21:13:22');
+(1, 5, 15, 10, 24, 30, 30, 1, 1, 1, 0, '', '2026-09-16 13:11:22');
 
 -- --------------------------------------------------------
 
@@ -1216,7 +1235,8 @@ CREATE TABLE `trusted_devices` (
 --
 
 INSERT INTO `trusted_devices` (`id`, `user_id`, `user_type`, `device_hash`, `device_name`, `ip_address`, `trusted_until`, `created_at`) VALUES
-(1, 1, 'admin', '60aaba416cc2bb2955706df2ccc31676edd8dc6fdc5fdf0d2e073df4959f542e', 'Windows 10/11 - Chrome', '186.235.151.9', '2026-10-16 11:08:21', '2026-09-16 11:08:21');
+(1, 1, 'admin', '60aaba416cc2bb2955706df2ccc31676edd8dc6fdc5fdf0d2e073df4959f542e', 'Windows 10/11 - Chrome', '186.235.151.9', '2026-10-16 11:08:21', '2026-09-16 11:08:21'),
+(2, 184, 'cliente', 'b5b2ea1fa30e59ab51fc1cda5cbe9e1b51b32ab07985892d0916c1da91842db6', 'Windows 10/11 - Chrome', '186.235.151.9', '2026-10-16 13:09:12', '2026-09-16 13:09:12');
 
 -- --------------------------------------------------------
 
@@ -2075,7 +2095,7 @@ ALTER TABLE `whatsapp_disparos`
 -- AUTO_INCREMENT de tabela `active_sessions`
 --
 ALTER TABLE `active_sessions`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
 -- AUTO_INCREMENT de tabela `administradores`
@@ -2111,13 +2131,13 @@ ALTER TABLE `historico_pagamentos`
 -- AUTO_INCREMENT de tabela `login_attempts`
 --
 ALTER TABLE `login_attempts`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
 -- AUTO_INCREMENT de tabela `logs`
 --
 ALTER TABLE `logs`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1354;
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1364;
 
 --
 -- AUTO_INCREMENT de tabela `mikrotik_payment_history`
@@ -2129,7 +2149,7 @@ ALTER TABLE `mikrotik_payment_history`
 -- AUTO_INCREMENT de tabela `password_resets`
 --
 ALTER TABLE `password_resets`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT de tabela `planos`
@@ -2147,7 +2167,7 @@ ALTER TABLE `roteadores`
 -- AUTO_INCREMENT de tabela `trusted_devices`
 --
 ALTER TABLE `trusted_devices`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT de tabela `webhook_logs`

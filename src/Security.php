@@ -756,8 +756,9 @@ class Security
             'ip' => $_SERVER['REMOTE_ADDR'] ?? 'desconhecido'
         ]);
 
-        return @mail($toEmail, $assunto, $corpo, implode("\r\n", $headers));
+        return self::sendEmailSmtp($toEmail, $assunto, $corpo);
     }
+
 
     /**
      * Valida o código 2FA recebido por e-mail.
@@ -840,14 +841,36 @@ class Security
             return $ok;
         }
 
-        // SMTP com stream_socket_client
+        // SMTP com stream_socket_client com suporte a auto-resolução de usuário para cPanel/Exim
         try {
+            $userCandidates = [];
+            if (!empty($smtpUser)) {
+                $userCandidates[] = $smtpUser;
+                // No cPanel, caixas postais exigem o e-mail completo como usuário de autenticação
+                if (strpos($smtpUser, '@') === false && strpos($mailFrom, '@') !== false) {
+                    if (!in_array($mailFrom, $userCandidates)) {
+                        $userCandidates[] = $mailFrom;
+                    }
+                    $fromDomain = explode('@', $mailFrom)[1] ?? '';
+                    if (!empty($fromDomain)) {
+                        $domainUser = $smtpUser . '@' . $fromDomain;
+                        if (!in_array($domainUser, $userCandidates)) {
+                            $userCandidates[] = $domainUser;
+                        }
+                    }
+                }
+            } else {
+                $userCandidates[] = '';
+            }
+
+            $serverName = $_SERVER['SERVER_NAME'] ?? 'spaconett.com';
+            if (!preg_match('/^[a-zA-Z0-9.-]+$/', $serverName)) {
+                $serverName = 'spaconett.com';
+            }
+
             $useTls  = ($smtpPort === 465);
             $prefix  = $useTls ? 'ssl://' : '';
             $timeout = 10;
-            $errno   = 0;
-            $errstr  = '';
-
             $context = stream_context_create([
                 'ssl' => [
                     'verify_peer'       => false,
@@ -856,105 +879,120 @@ class Security
                 ]
             ]);
 
-            $sock = @stream_socket_client("{$prefix}{$smtpHost}:{$smtpPort}", $errno, $errstr, $timeout, STREAM_CLIENT_CONNECT, $context);
-            if (!$sock) {
-                self::$lastSmtpError = "Não foi possível conectar em {$smtpHost}:{$smtpPort} ({$errstr} [{$errno}])";
-                error_log("SMTP connect failed: " . self::$lastSmtpError);
-                return false;
-            }
-
-            $read = fgets($sock, 512);
-            if (strpos($read, '220') === false) {
-                self::$lastSmtpError = "Banner SMTP inesperado: {$read}";
-                fclose($sock);
-                return false;
-            }
-
-            $send = function(string $cmd) use ($sock): string {
-                fwrite($sock, $cmd . "\r\n");
-                $reply = '';
-                while ($line = fgets($sock, 512)) {
-                    $reply .= $line;
-                    if (isset($line[3]) && $line[3] === ' ') break;
+            foreach ($userCandidates as $candidateUser) {
+                $errno   = 0;
+                $errstr  = '';
+                $sock = @stream_socket_client("{$prefix}{$smtpHost}:{$smtpPort}", $errno, $errstr, $timeout, STREAM_CLIENT_CONNECT, $context);
+                if (!$sock) {
+                    self::$lastSmtpError = "Não foi possível conectar em {$smtpHost}:{$smtpPort} ({$errstr} [{$errno}])";
+                    error_log("SMTP connect failed: " . self::$lastSmtpError);
+                    return false;
                 }
-                return $reply;
-            };
 
-            $r = $send("EHLO " . ($_SERVER['SERVER_NAME'] ?? 'localhost'));
+                $read = fgets($sock, 512);
+                if (strpos($read, '220') === false) {
+                    self::$lastSmtpError = "Banner SMTP inesperado: {$read}";
+                    fclose($sock);
+                    return false;
+                }
 
-            // STARTTLS para porta 587
-            if (!$useTls && $smtpPort === 587) {
-                $r = $send("STARTTLS");
-                if (strpos($r, '220') !== false) {
-                    $cryptoOk = @stream_socket_enable_crypto($sock, true, STREAM_CRYPTO_METHOD_TLS_CLIENT);
-                    if ($cryptoOk) {
-                        $r = $send("EHLO " . ($_SERVER['SERVER_NAME'] ?? 'localhost'));
+                $send = function(string $cmd) use ($sock): string {
+                    fwrite($sock, $cmd . "\r\n");
+                    $reply = '';
+                    while ($line = fgets($sock, 512)) {
+                        $reply .= $line;
+                        if (isset($line[3]) && $line[3] === ' ') break;
+                    }
+                    return $reply;
+                };
+
+                $r = $send("EHLO " . $serverName);
+
+                // STARTTLS para porta 587
+                if (!$useTls && $smtpPort === 587) {
+                    $r = $send("STARTTLS");
+                    if (strpos($r, '220') !== false) {
+                        $cryptoOk = @stream_socket_enable_crypto($sock, true, STREAM_CRYPTO_METHOD_TLS_CLIENT);
+                        if ($cryptoOk) {
+                            $r = $send("EHLO " . $serverName);
+                        }
                     }
                 }
-            }
 
-            // Login
-            if (!empty($smtpUser)) {
-                $r = $send("AUTH LOGIN");
-                if (strpos($r, '334') === false) {
-                    self::$lastSmtpError = "Servidor não aceitou AUTH LOGIN: {$r}";
+                // Login
+                if (!empty($candidateUser)) {
+                    $r = $send("AUTH LOGIN");
+                    if (strpos($r, '334') === false) {
+                        self::$lastSmtpError = "Servidor não aceitou AUTH LOGIN: {$r}";
+                        fclose($sock);
+                        return false;
+                    }
+                    $r = $send(base64_encode($candidateUser));
+                    if (strpos($r, '334') === false) {
+                        self::$lastSmtpError = "Usuário SMTP rejeitado ({$candidateUser}): {$r}";
+                        fclose($sock);
+                        continue;
+                    }
+                    $r = $send(base64_encode($smtpPass));
+                    if (strpos($r, '235') === false) {
+                        self::$lastSmtpError = "Senha SMTP rejeitada pelo servidor para '{$candidateUser}': {$r}";
+                        fclose($sock);
+                        continue;
+                    }
+
+                    // Se autenticou com sucesso e o candidato era diferente do banco, corrige no banco
+                    if (!empty($candidateUser) && $candidateUser !== $smtpUser) {
+                        try {
+                            $db = Database::getInstance();
+                            $db->prepare("UPDATE configuracoes SET smtp_user = ? WHERE id = 1")->execute([$candidateUser]);
+                            Database::log('smtp', "Usuário SMTP corrigido automaticamente no banco para: {$candidateUser}");
+                        } catch (\Throwable $t) {}
+                    }
+                }
+
+                $rMail = $send("MAIL FROM:<{$mailFrom}>");
+                if (strpos($rMail, '250') === false) {
+                    self::$lastSmtpError = "Remetente rejeitado ({$mailFrom}): {$rMail}";
                     fclose($sock);
                     return false;
                 }
-                $r = $send(base64_encode($smtpUser));
-                if (strpos($r, '334') === false) {
-                    self::$lastSmtpError = "Usuário SMTP rejeitado: {$r}";
+
+                $rRcpt = $send("RCPT TO:<{$toEmail}>");
+                if (strpos($rRcpt, '250') === false) {
+                    self::$lastSmtpError = "Destinatário rejeitado ({$toEmail}): {$rRcpt}";
                     fclose($sock);
                     return false;
                 }
-                $r = $send(base64_encode($smtpPass));
-                if (strpos($r, '235') === false) {
-                    self::$lastSmtpError = "Senha SMTP rejeitada pelo servidor: {$r}";
+
+                $rData = $send("DATA");
+                if (strpos($rData, '354') === false) {
+                    self::$lastSmtpError = "Comando DATA rejeitado: {$rData}";
                     fclose($sock);
                     return false;
                 }
-            }
 
-            $rMail = $send("MAIL FROM:<{$mailFrom}>");
-            if (strpos($rMail, '250') === false) {
-                self::$lastSmtpError = "Remetente rejeitado ({$mailFrom}): {$rMail}";
+                $msgBody = "From: {$mailFrom}\r\n";
+                $msgBody .= "To: {$toEmail}\r\n";
+                $msgBody .= "Subject: =?UTF-8?B?" . base64_encode($subject) . "?=\r\n";
+                $msgBody .= "MIME-Version: 1.0\r\n";
+                $msgBody .= "Content-Type: text/html; charset=UTF-8\r\n";
+                $msgBody .= "X-Mailer: MikroTikPay/1.0\r\n";
+                $msgBody .= "\r\n";
+                $msgBody .= $htmlBody;
+                $msgBody .= "\r\n.";
+
+                $r = $send($msgBody);
+                $send("QUIT");
                 fclose($sock);
-                return false;
+
+                $sucesso = (strpos($r, '250') !== false);
+                if (!$sucesso) {
+                    self::$lastSmtpError = "Envio da mensagem rejeitado: {$r}";
+                }
+                return $sucesso;
             }
 
-            $rRcpt = $send("RCPT TO:<{$toEmail}>");
-            if (strpos($rRcpt, '250') === false) {
-                self::$lastSmtpError = "Destinatário rejeitado ({$toEmail}): {$rRcpt}";
-                fclose($sock);
-                return false;
-            }
-
-            $rData = $send("DATA");
-            if (strpos($rData, '354') === false) {
-                self::$lastSmtpError = "Comando DATA rejeitado: {$rData}";
-                fclose($sock);
-                return false;
-            }
-
-            $msgBody = "From: {$mailFrom}\r\n";
-            $msgBody .= "To: {$toEmail}\r\n";
-            $msgBody .= "Subject: =?UTF-8?B?" . base64_encode($subject) . "?=\r\n";
-            $msgBody .= "MIME-Version: 1.0\r\n";
-            $msgBody .= "Content-Type: text/html; charset=UTF-8\r\n";
-            $msgBody .= "X-Mailer: MikroTikPay/1.0\r\n";
-            $msgBody .= "\r\n";
-            $msgBody .= $htmlBody;
-            $msgBody .= "\r\n.";
-
-            $r = $send($msgBody);
-            $send("QUIT");
-            fclose($sock);
-
-            $sucesso = (strpos($r, '250') !== false);
-            if (!$sucesso) {
-                self::$lastSmtpError = "Envio da mensagem rejeitado: {$r}";
-            }
-            return $sucesso;
+            return false;
         } catch (\Exception $e) {
             self::$lastSmtpError = "Exceção SMTP: " . $e->getMessage();
             error_log(self::$lastSmtpError);

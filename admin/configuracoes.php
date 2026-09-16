@@ -600,7 +600,8 @@ $macroDroidUrlFull = BASE_URL . "/payment/pix.php?client_name=NOME_DO_CLIENTE";
                 </div>
                 <div class="mb-3">
                     <label class="form-label small text-secondary">Usuário SMTP</label>
-                    <input type="text" name="smtp_user" class="form-control-custom" value="<?= sanitize($config['smtp_user'] ?? '') ?>" placeholder="seu-email@gmail.com">
+                    <input type="text" name="smtp_user" class="form-control-custom" value="<?= sanitize($config['smtp_user'] ?? '') ?>" placeholder="ex: spaconet@spaconett.com ou seu-email@gmail.com">
+                    <small class="text-secondary d-block mt-1"><i class="fa-solid fa-circle-info text-info me-1"></i>Para cPanel / Webmail próprio: digite o <strong>endereço de e-mail completo</strong> (ex: <code>spaconet@spaconett.com</code>), e não apenas o usuário do cPanel.</small>
                 </div>
                 <div class="mb-3">
                     <label class="form-label small text-secondary">Senha SMTP (App Password)</label>

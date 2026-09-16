@@ -78,9 +78,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             'email_enviado' => $enviou ? 'sucesso' : 'falha'
                         ]);
 
-                        $emailParts = explode('@', $cliente['email']);
-                        $emailMasc = substr($emailParts[0], 0, 3) . '***@' . ($emailParts[1] ?? '');
-                        $sucesso = "As instruções de redefinição de senha foram enviadas para o seu e-mail cadastrado ({$emailMasc}). Verifique sua caixa de entrada e a pasta de spam.";
+                        if ($enviou) {
+                            $emailParts = explode('@', $cliente['email']);
+                            $emailMasc = substr($emailParts[0], 0, 3) . '***@' . ($emailParts[1] ?? '');
+                            $sucesso = "As instruções de redefinição de senha foram enviadas para o seu e-mail cadastrado ({$emailMasc}). Verifique sua caixa de entrada e a pasta de spam.";
+                        } else {
+                            $erro = "Não foi possível enviar o e-mail de recuperação: " . (Security::$lastSmtpError ?: "Falha na conexão SMTP com o servidor de e-mail.") . " Por favor, tente novamente ou entre em contato com nosso atendimento.";
+                        }
                     } else {
                         $erro = 'Encontramos seu cadastro, porém você ainda não possui um e-mail cadastrado para recebimento do link de recuperação. Por favor, entre em contato com nosso atendimento via WhatsApp para cadastrar seu e-mail ou definir uma nova senha.';
                     }

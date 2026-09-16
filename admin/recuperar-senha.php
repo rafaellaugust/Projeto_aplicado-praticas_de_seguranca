@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /**
  * @file admin/recuperar-senha.php
  * @brief Recuperação de senha do administrador (dois passos: solicitar e-mail / redefinir senha)
@@ -46,14 +46,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         VALUES (?, 'admin', ?, DATE_ADD(NOW(), INTERVAL 15 MINUTE), 0, NOW())
                     ")->execute([$admin['email'], $tokenHash]);
 
-                    $link = BASE_URL . '/admin/recuperar-senha.php?token=' . rawurlencode($token);
-                    Security::sendPasswordResetEmail($admin['email'], $admin['nome'], $link, 'admin');
+                    $enviou = Security::sendPasswordResetEmail($admin['email'], $admin['nome'], $link, 'admin');
 
                     Database::log('auth', "Solicitação de recuperação de senha admin: {$admin['email']}", [
                         'ip' => $_SERVER['REMOTE_ADDR'] ?? 'desconhecido',
+                        'email_enviado' => $enviou ? 'sucesso' : 'falha',
+                        'erro' => $enviou ? null : Security::$lastSmtpError
                     ]);
+
+                    if ($enviou) {
+                        $sucesso = 'Se o e-mail informado estiver cadastrado, as instruções e o link de recuperação foram enviados com sucesso.';
+                    } else {
+                        $erro = "Falha ao enviar o e-mail de recuperação: " . (Security::$lastSmtpError ?: "Erro no servidor SMTP.");
+                    }
+                } else {
+                    $sucesso = 'Se o e-mail informado estiver cadastrado, as instruções e o link de recuperação foram enviados com sucesso.';
                 }
-                $sucesso = 'Se o e-mail informado estiver cadastrado, as instruções e o link de recuperação foram enviados com sucesso.';
             }
         } else {
             $tokenRecebido = trim($_POST['token'] ?? '');
