@@ -172,10 +172,10 @@ class Security
         try {
             $db = Database::getInstance();
             $stmt = $db->prepare('
-                SELECT id, expires_at 
+                SELECT id, blocked_until 
                 FROM blocked_ips 
                 WHERE ip_address = :ip 
-                  AND (expires_at IS NULL OR expires_at > NOW())
+                  AND (blocked_until IS NULL OR blocked_until > NOW())
             ');
             $stmt->execute([':ip' => $ip]);
             return (bool) $stmt->fetch();
@@ -201,7 +201,7 @@ class Security
             // Remove bloqueios anteriores, se houver
             self::unblockIp($ip);
 
-            $query = 'INSERT INTO blocked_ips (ip_address, reason, created_at, expires_at) VALUES (:ip, :reason, NOW(), ';
+            $query = 'INSERT INTO blocked_ips (ip_address, reason, created_at, blocked_until) VALUES (:ip, :reason, NOW(), ';
             if ($durationHours === null) {
                 $query .= 'NULL)';
             } else {
@@ -721,9 +721,11 @@ class Security
         return false;
     }
 
+    public static string $lastSmtpError = '';
+
     /**
      * Envia e-mail via SMTP autenticado usando configurações do banco ou .env.
-     * Usa stream_socket_client() nativamente (sem PHPMailer) com suporte a STARTTLS.
+     * Usa stream_socket_client() nativamente com suporte a SSL (465) e STARTTLS (587).
      * Se SMTP não configurado, usa mail() nativo como fallback.
      *
      * @param string $toEmail Destinatário
@@ -734,6 +736,8 @@ class Security
      */
     public static function sendEmailSmtp(string $toEmail, string $subject, string $htmlBody, ?string $fromEmail = null): bool
     {
+        self::$lastSmtpError = '';
+
         // Carregar configurações do banco de dados (fallback para .env)
         $smtpHost    = '';
         $smtpPort    = 587;
@@ -745,19 +749,19 @@ class Security
             $db = Database::getInstance();
             $cfg = $db->query("SELECT smtp_host, smtp_port, smtp_user, smtp_pass, smtp_from FROM configuracoes WHERE id = 1")->fetch();
             if ($cfg) {
-                $smtpHost = $cfg['smtp_host'] ?? '';
+                $smtpHost = trim($cfg['smtp_host'] ?? '');
                 $smtpPort = (int)($cfg['smtp_port'] ?? 587);
-                $smtpUser = $cfg['smtp_user'] ?? '';
+                $smtpUser = trim($cfg['smtp_user'] ?? '');
                 $smtpPass = $cfg['smtp_pass'] ?? '';
-                if (!empty($cfg['smtp_from'])) $mailFrom = $cfg['smtp_from'];
+                if (!empty($cfg['smtp_from'])) $mailFrom = trim($cfg['smtp_from']);
             }
         } catch (\Exception $e) {}
 
         // Fallback para .env se banco não tiver configuração
         if (empty($smtpHost)) {
-            $smtpHost = getenv('SMTP_HOST') ?: '';
+            $smtpHost = trim(getenv('SMTP_HOST') ?: '');
             $smtpPort = (int)(getenv('SMTP_PORT') ?: 587);
-            $smtpUser = getenv('SMTP_USER') ?: '';
+            $smtpUser = trim(getenv('SMTP_USER') ?: '');
             $smtpPass = getenv('SMTP_PASS') ?: '';
         }
 
@@ -770,10 +774,12 @@ class Security
                 'Reply-To: ' . $mailFrom,
                 'X-Mailer: PHP/' . phpversion()
             ]);
-            return @mail($toEmail, $subject, $htmlBody, $headers);
+            $ok = @mail($toEmail, $subject, $htmlBody, $headers);
+            if (!$ok) self::$lastSmtpError = 'Função mail() nativa do PHP falhou ao enviar.';
+            return $ok;
         }
 
-        // SMTP com stream_socket_client (suporta STARTTLS na porta 587/25)
+        // SMTP com stream_socket_client
         try {
             $useTls  = ($smtpPort === 465);
             $prefix  = $useTls ? 'ssl://' : '';
@@ -781,18 +787,36 @@ class Security
             $errno   = 0;
             $errstr  = '';
 
-            $sock = @stream_socket_client("{$prefix}{$smtpHost}:{$smtpPort}", $errno, $errstr, $timeout);
+            $context = stream_context_create([
+                'ssl' => [
+                    'verify_peer'       => false,
+                    'verify_peer_name'  => false,
+                    'allow_self_signed' => true
+                ]
+            ]);
+
+            $sock = @stream_socket_client("{$prefix}{$smtpHost}:{$smtpPort}", $errno, $errstr, $timeout, STREAM_CLIENT_CONNECT, $context);
             if (!$sock) {
-                error_log("SMTP connect failed: {$errstr} ({$errno})");
+                self::$lastSmtpError = "Não foi possível conectar em {$smtpHost}:{$smtpPort} ({$errstr} [{$errno}])";
+                error_log("SMTP connect failed: " . self::$lastSmtpError);
                 return false;
             }
 
             $read = fgets($sock, 512);
-            if (strpos($read, '220') === false) { fclose($sock); return false; }
+            if (strpos($read, '220') === false) {
+                self::$lastSmtpError = "Banner SMTP inesperado: {$read}";
+                fclose($sock);
+                return false;
+            }
 
             $send = function(string $cmd) use ($sock): string {
                 fwrite($sock, $cmd . "\r\n");
-                return fgets($sock, 512);
+                $reply = '';
+                while ($line = fgets($sock, 512)) {
+                    $reply .= $line;
+                    if (isset($line[3]) && $line[3] === ' ') break;
+                }
+                return $reply;
             };
 
             $r = $send("EHLO " . ($_SERVER['SERVER_NAME'] ?? 'localhost'));
@@ -801,24 +825,55 @@ class Security
             if (!$useTls && $smtpPort === 587) {
                 $r = $send("STARTTLS");
                 if (strpos($r, '220') !== false) {
-                    stream_socket_enable_crypto($sock, true, STREAM_CRYPTO_METHOD_TLS_CLIENT);
-                    $r = $send("EHLO " . ($_SERVER['SERVER_NAME'] ?? 'localhost'));
+                    $cryptoOk = @stream_socket_enable_crypto($sock, true, STREAM_CRYPTO_METHOD_TLS_CLIENT);
+                    if ($cryptoOk) {
+                        $r = $send("EHLO " . ($_SERVER['SERVER_NAME'] ?? 'localhost'));
+                    }
                 }
             }
 
             // Login
             if (!empty($smtpUser)) {
                 $r = $send("AUTH LOGIN");
-                if (strpos($r, '334') === false) { fclose($sock); return false; }
+                if (strpos($r, '334') === false) {
+                    self::$lastSmtpError = "Servidor não aceitou AUTH LOGIN: {$r}";
+                    fclose($sock);
+                    return false;
+                }
                 $r = $send(base64_encode($smtpUser));
-                if (strpos($r, '334') === false) { fclose($sock); return false; }
+                if (strpos($r, '334') === false) {
+                    self::$lastSmtpError = "Usuário SMTP rejeitado: {$r}";
+                    fclose($sock);
+                    return false;
+                }
                 $r = $send(base64_encode($smtpPass));
-                if (strpos($r, '235') === false) { fclose($sock); return false; }
+                if (strpos($r, '235') === false) {
+                    self::$lastSmtpError = "Senha SMTP rejeitada pelo servidor: {$r}";
+                    fclose($sock);
+                    return false;
+                }
             }
 
-            $send("MAIL FROM:<{$mailFrom}>");
-            $send("RCPT TO:<{$toEmail}>");
-            $send("DATA");
+            $rMail = $send("MAIL FROM:<{$mailFrom}>");
+            if (strpos($rMail, '250') === false) {
+                self::$lastSmtpError = "Remetente rejeitado ({$mailFrom}): {$rMail}";
+                fclose($sock);
+                return false;
+            }
+
+            $rRcpt = $send("RCPT TO:<{$toEmail}>");
+            if (strpos($rRcpt, '250') === false) {
+                self::$lastSmtpError = "Destinatário rejeitado ({$toEmail}): {$rRcpt}";
+                fclose($sock);
+                return false;
+            }
+
+            $rData = $send("DATA");
+            if (strpos($rData, '354') === false) {
+                self::$lastSmtpError = "Comando DATA rejeitado: {$rData}";
+                fclose($sock);
+                return false;
+            }
 
             $msgBody = "From: {$mailFrom}\r\n";
             $msgBody .= "To: {$toEmail}\r\n";
@@ -834,9 +889,14 @@ class Security
             $send("QUIT");
             fclose($sock);
 
-            return strpos($r, '250') !== false;
+            $sucesso = (strpos($r, '250') !== false);
+            if (!$sucesso) {
+                self::$lastSmtpError = "Envio da mensagem rejeitado: {$r}";
+            }
+            return $sucesso;
         } catch (\Exception $e) {
-            error_log("SMTP error: " . $e->getMessage());
+            self::$lastSmtpError = "Exceção SMTP: " . $e->getMessage();
+            error_log(self::$lastSmtpError);
             return false;
         }
     }

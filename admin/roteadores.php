@@ -31,9 +31,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // Teste de conexão dinâmico se solicitado
 $testeResultado = null;
+$testeErro = '';
 if (isset($_GET['testar']) && $_GET['testar'] === '1') {
     $mkApi = new MikrotikAPI();
     $testeResultado = $mkApi->testConnection();
+    if (!$testeResultado) {
+        $testeErro = $mkApi->getLastError();
+    }
 }
 
 $stmtR = $db->query("SELECT * FROM roteadores WHERE id = 1");
@@ -78,7 +82,8 @@ $router = $stmtR->fetch();
             <i class="fa-solid fa-circle-xmark fs-4"></i>
             <div>
                 <strong>Falha na Conexão com o MikroTik!</strong><br>
-                Verifique se o serviço IP -> API está ativado no Winbox, se o IP/Porta estão corretos e se a senha está certa.
+                <?= !empty($testeErro) ? '<strong>Detalhe:</strong> ' . htmlspecialchars($testeErro) . '<br>' : '' ?>
+                Verifique se o serviço IP -> API / API-SSL está ativado no Winbox, se a porta (8728 ou 8729) está correta e liberada no firewall.
             </div>
         </div>
     <?php endif; ?>

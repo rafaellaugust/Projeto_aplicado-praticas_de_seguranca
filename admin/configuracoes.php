@@ -118,7 +118,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'testar_smtp') {
         $ok = Security::sendEmailSmtp($toEmail, '✅ Teste SMTP — MikroTik Pay', $corpo);
         echo json_encode([
             'success' => $ok,
-            'message' => $ok ? "E-mail de teste enviado para {$toEmail} com sucesso!" : "Falha ao enviar e-mail. Verifique as credenciais SMTP."
+            'message' => $ok ? "E-mail de teste enviado para {$toEmail} com sucesso!" : ("Falha ao enviar e-mail: " . (Security::$lastSmtpError ?: "Verifique as credenciais SMTP."))
         ]);
     } catch (Exception $e) {
         echo json_encode(['success' => false, 'message' => $e->getMessage()]);

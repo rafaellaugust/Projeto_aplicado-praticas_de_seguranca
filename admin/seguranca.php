@@ -6,6 +6,67 @@ $db = Database::getInstance();
 $erro = '';
 $sucesso = '';
 
+// Garante que as tabelas de segurança existam
+try {
+    $db->exec("CREATE TABLE IF NOT EXISTS `blocked_ips` (
+      `id` int NOT NULL AUTO_INCREMENT,
+      `ip_address` varchar(45) NOT NULL,
+      `reason` varchar(255) DEFAULT NULL,
+      `blocked_until` datetime DEFAULT NULL,
+      `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (`id`),
+      UNIQUE KEY `ip_address` (`ip_address`),
+      KEY `idx_ip` (`ip_address`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    $db->exec("CREATE TABLE IF NOT EXISTS `login_attempts` (
+      `id` int NOT NULL AUTO_INCREMENT,
+      `ip_address` varchar(45) NOT NULL,
+      `email_or_user` varchar(150) DEFAULT NULL,
+      `user_type` enum('admin','cliente') NOT NULL DEFAULT 'admin',
+      `success` tinyint DEFAULT 0,
+      `user_agent` text,
+      `geo_country` varchar(100) DEFAULT NULL,
+      `geo_city` varchar(100) DEFAULT NULL,
+      `device_fingerprint` varchar(64) DEFAULT NULL,
+      `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (`id`),
+      KEY `idx_ip_created` (`ip_address`, `created_at`),
+      KEY `idx_user_created` (`email_or_user`, `created_at`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    $db->exec("CREATE TABLE IF NOT EXISTS `trusted_devices` (
+      `id` int NOT NULL AUTO_INCREMENT,
+      `user_id` int NOT NULL,
+      `user_type` enum('admin','cliente') NOT NULL DEFAULT 'admin',
+      `device_hash` varchar(64) NOT NULL,
+      `device_name` varchar(255) DEFAULT NULL,
+      `ip_address` varchar(45) DEFAULT NULL,
+      `trusted_until` datetime NOT NULL,
+      `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (`id`),
+      KEY `idx_user_device` (`user_id`, `user_type`, `device_hash`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    $db->exec("CREATE TABLE IF NOT EXISTS `security_settings` (
+      `id` int NOT NULL DEFAULT 1,
+      `max_login_attempts` int DEFAULT 5,
+      `lockout_duration_minutes` int DEFAULT 15,
+      `auto_block_threshold` int DEFAULT 10,
+      `auto_block_duration_hours` int DEFAULT 24,
+      `session_timeout_minutes` int DEFAULT 30,
+      `trusted_device_days` int DEFAULT 30,
+      `require_2fa_admin` tinyint DEFAULT 1,
+      `geo_check_enabled` tinyint DEFAULT 0,
+      `device_check_enabled` tinyint DEFAULT 1,
+      `admin_ip_whitelist` text,
+      `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (`id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    $db->exec("INSERT IGNORE INTO `security_settings` (`id`) VALUES (1)");
+} catch (Exception $e) {}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!Security::validateCsrfToken()) {
         $erro = 'Sessão expirada ou requisição inválida.';
@@ -24,11 +85,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $motivo = trim($_POST['motivo_bloquear'] ?? 'Bloqueio manual pelo administrador');
             $horas = (int)($_POST['horas_bloquear'] ?? 24);
             if (filter_var($ip, FILTER_VALIDATE_IP)) {
-                Security::blockIp($ip, $motivo, $horas > 0 ? $horas : null);
-                Database::log('admin_seguranca', "IP bloqueado manualmente: {$ip}", ['ip' => $ip, 'motivo' => $motivo, 'admin_id' => $_SESSION['admin_id']]);
-                $sucesso = "IP {$ip} bloqueado com sucesso por " . ($horas > 0 ? "{$horas}h" : "tempo indeterminado") . ".";
+                try {
+                    Security::blockIp($ip, $motivo, $horas > 0 ? $horas : null);
+                    Database::log('admin_seguranca', "IP bloqueado manualmente: {$ip}", ['ip' => $ip, 'motivo' => $motivo, 'admin_id' => $_SESSION['admin_id']]);
+                    $sucesso = "IP {$ip} bloqueado com sucesso por " . ($horas > 0 ? "{$horas}h" : "tempo indeterminado") . ".";
+                } catch (Exception $e) {
+                    $erro = "Erro ao bloquear IP: " . $e->getMessage();
+                }
             } else {
-                $erro = "Endereço IP inválido: {$ip}";
+                $erro = "Endereço IP inválido informado: {$ip}";
             }
         } elseif ($action === 'revoke_device') {
             $id = (int)($_POST['id'] ?? 0);
