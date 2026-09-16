@@ -253,6 +253,12 @@ require_once __DIR__ . '/header.php';
                             } elseif (in_array($tipoLower, ['auth', 'login', 'autenticacao', 'logout', 'auth_cliente', 'auth_admin', 'auth_cliente_falha', 'auth_email_2fa'])) {
                                 $badgeClass = 'badge-aviso';
                                 $badgeIcon = 'fa-user-shield';
+                            } elseif (in_array($tipoLower, ['smtp', 'smtp_erro', 'email', 'recuperacao_senha'])) {
+                                $badgeClass = 'badge-aviso';
+                                $badgeIcon = 'fa-envelope';
+                            } elseif (in_array($tipoLower, ['admin_seguranca', 'admin_conta', 'seguranca'])) {
+                                $badgeClass = 'badge-ativo';
+                                $badgeIcon = 'fa-shield-halved';
                             } elseif (in_array($tipoLower, ['mikrotik', 'routeros'])) {
                                 $badgeClass = 'badge-ativo';
                                 $badgeIcon = 'fa-server';

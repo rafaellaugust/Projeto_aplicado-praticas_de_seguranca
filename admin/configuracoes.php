@@ -60,8 +60,18 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'testar_mp') {
     try {
         $gateway = new PaymentGateway();
         $resMP   = $gateway->testToken(); // método correto em PaymentGateway.php
+        $statusMsg = !empty($resMP['success']) ? 'Conexão com Mercado Pago validada com sucesso' : 'Falha na conexão com Mercado Pago: ' . ($resMP['message'] ?? 'Erro desconhecido');
+        Database::log('gateway', $statusMsg, [
+            'ip' => $_SERVER['REMOTE_ADDR'] ?? '',
+            'admin_id' => $_SESSION['admin_id'] ?? null,
+            'resultado' => $resMP
+        ]);
         echo json_encode($resMP);
     } catch (Exception $e) {
+        Database::log('gateway_erro', "Exceção ao testar Mercado Pago: " . $e->getMessage(), [
+            'ip' => $_SERVER['REMOTE_ADDR'] ?? '',
+            'admin_id' => $_SESSION['admin_id'] ?? null
+        ]);
         echo json_encode(['success'=>false,'message'=>$e->getMessage()]);
     }
     exit;
@@ -74,6 +84,10 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'testar_webhook_callback') {
         $db = Database::getInstance();
         $url = $db->query("SELECT webhook_callback_url FROM configuracoes WHERE id = 1")->fetchColumn();
         if (empty($url)) {
+            Database::log('webhook', "Tentativa de teste de Webhook Callback sem URL cadastrada", [
+                'ip' => $_SERVER['REMOTE_ADDR'] ?? '',
+                'admin_id' => $_SESSION['admin_id'] ?? null
+            ]);
             echo json_encode(['success' => false, 'message' => 'Nenhuma URL de Webhook cadastrada.']);
             exit;
         }
@@ -93,11 +107,25 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'testar_webhook_callback') {
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
         if ($httpCode >= 200 && $httpCode < 300) {
+            Database::log('webhook_callback', "Teste de Webhook Callback enviado com sucesso para {$url} (HTTP {$httpCode})", [
+                'ip' => $_SERVER['REMOTE_ADDR'] ?? '',
+                'url' => $url,
+                'http_code' => $httpCode
+            ]);
             echo json_encode(['success' => true, 'message' => "Webhook OK! Resposta HTTP {$httpCode} recebida."]);
         } else {
+            Database::log('webhook_callback', "Falha no teste de Webhook Callback para {$url} (HTTP {$httpCode})", [
+                'ip' => $_SERVER['REMOTE_ADDR'] ?? '',
+                'url' => $url,
+                'http_code' => $httpCode,
+                'resposta' => substr($response, 0, 200)
+            ]);
             echo json_encode(['success' => false, 'message' => "Erro de conexão HTTP {$httpCode}. Retorno: " . substr($response, 0, 150)]);
         }
     } catch (Exception $e) {
+        Database::log('webhook_callback', "Exceção no teste de Webhook Callback: " . $e->getMessage(), [
+            'ip' => $_SERVER['REMOTE_ADDR'] ?? ''
+        ]);
         echo json_encode(['success' => false, 'message' => $e->getMessage()]);
     }
     exit;
@@ -111,16 +139,42 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'testar_smtp') {
         $cfg = $db->query("SELECT smtp_host, smtp_port, smtp_user, smtp_pass, smtp_from, empresa_nome FROM configuracoes WHERE id = 1")->fetch();
         $toEmail = $cfg['smtp_from'] ?? (getenv('MAIL_FROM') ?: '');
         if (empty($toEmail)) {
+            Database::log('smtp', "Tentativa de teste SMTP sem e-mail remetente configurado", [
+                'ip' => $_SERVER['REMOTE_ADDR'] ?? '',
+                'admin_id' => $_SESSION['admin_id'] ?? null
+            ]);
             echo json_encode(['success' => false, 'message' => 'Configure um e-mail remetente (SMTP From) antes de testar.']);
             exit;
         }
         $corpo = '<div style="font-family:Arial; padding:20px; background:#1e293b; color:#f8fafc; border-radius:8px;"><h3 style="color:#0ea5e9;">✅ Teste SMTP — MikroTik Pay</h3><p>Conexão SMTP configurada com sucesso! Esta é uma mensagem de teste enviada pelo painel.</p></div>';
         $ok = Security::sendEmailSmtp($toEmail, '✅ Teste SMTP — MikroTik Pay', $corpo);
+        if ($ok) {
+            Database::log('smtp', "Teste de envio de e-mail SMTP enviado com sucesso para {$toEmail}", [
+                'ip' => $_SERVER['REMOTE_ADDR'] ?? '',
+                'admin_id' => $_SESSION['admin_id'] ?? null,
+                'destinatario' => $toEmail,
+                'host' => $cfg['smtp_host'] ?? '',
+                'porta' => $cfg['smtp_port'] ?? 587
+            ]);
+        } else {
+            Database::log('smtp_erro', "Falha no teste de envio de e-mail SMTP para {$toEmail}: " . (Security::$lastSmtpError ?: "Credenciais rejeitadas"), [
+                'ip' => $_SERVER['REMOTE_ADDR'] ?? '',
+                'admin_id' => $_SESSION['admin_id'] ?? null,
+                'destinatario' => $toEmail,
+                'host' => $cfg['smtp_host'] ?? '',
+                'porta' => $cfg['smtp_port'] ?? 587,
+                'erro' => Security::$lastSmtpError ?: 'Erro desconhecido'
+            ]);
+        }
         echo json_encode([
             'success' => $ok,
             'message' => $ok ? "E-mail de teste enviado para {$toEmail} com sucesso!" : ("Falha ao enviar e-mail: " . (Security::$lastSmtpError ?: "Verifique as credenciais SMTP."))
         ]);
     } catch (Exception $e) {
+        Database::log('smtp_erro', "Exceção no teste de envio SMTP: " . $e->getMessage(), [
+            'ip' => $_SERVER['REMOTE_ADDR'] ?? '',
+            'admin_id' => $_SESSION['admin_id'] ?? null
+        ]);
         echo json_encode(['success' => false, 'message' => $e->getMessage()]);
     }
     exit;
@@ -215,6 +269,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
+        Database::log('sistema', "Configurações gerais do sistema atualizadas por " . ($_SESSION['admin_nome'] ?? 'Admin'), [
+            'ip' => $_SERVER['REMOTE_ADDR'] ?? '',
+            'admin_id' => $_SESSION['admin_id'] ?? null
+        ]);
+
         $msgSuccess = "Todas as configurações foram salvas com sucesso!";
     } catch (Exception $e) {
         $msgError = "Erro ao salvar configurações: " . $e->getMessage();
@@ -227,8 +286,16 @@ if (isset($_GET['testar_telegram']) && $_GET['testar_telegram'] === '1') {
     $tg = new TelegramService();
     $res = $tg->sendMessage("🔔 <b>TESTE DE INTEGRAÇÃO TELEGRAM</b>\n\nSua plataforma MikroTik Pay está conectada com sucesso ao Telegram Bot!");
     if ($res) {
+        Database::log('telegram', "Mensagem de teste do Telegram enviada com sucesso", [
+            'ip' => $_SERVER['REMOTE_ADDR'] ?? '',
+            'admin_id' => $_SESSION['admin_id'] ?? null
+        ]);
         $msgSuccess = "Mensagem de teste enviada com sucesso no Telegram!";
     } else {
+        Database::log('telegram_erro', "Falha ao enviar mensagem de teste no Telegram", [
+            'ip' => $_SERVER['REMOTE_ADDR'] ?? '',
+            'admin_id' => $_SESSION['admin_id'] ?? null
+        ]);
         $msgError = "Falha ao enviar mensagem no Telegram. Verifique o Token do Bot e o Chat ID.";
     }
 }
@@ -244,14 +311,28 @@ if (isset($_GET['testar_whatsapp']) && $_GET['testar_whatsapp'] === '1') {
             $msg = "🔔 *TESTE DE INTEGRAÇÃO WHATSAPP*\n\nSeu sistema de cobrança está conectado com sucesso ao WhatsApp!";
             $res = $wa->sendTextMessage($telefoneDestino, $msg);
             if ($res) {
+                Database::log('whatsapp', "Mensagem de teste do WhatsApp enviada com sucesso para {$telefoneDestino}", [
+                    'ip' => $_SERVER['REMOTE_ADDR'] ?? '',
+                    'destino' => $telefoneDestino
+                ]);
                 $msgSuccess = "Conexão com a API OK! Mensagem de teste enviada para o WhatsApp da Empresa (" . $telefoneDestino . ").";
             } else {
+                Database::log('whatsapp_erro', "Falha ao enviar mensagem de teste do WhatsApp para {$telefoneDestino}", [
+                    'ip' => $_SERVER['REMOTE_ADDR'] ?? '',
+                    'destino' => $telefoneDestino
+                ]);
                 $msgError = "API do WhatsApp respondeu, mas falhou ao enviar a mensagem. Verifique se o número da empresa (" . $telefoneDestino . ") está correto e ativo no WhatsApp.";
             }
         } else {
+            Database::log('whatsapp', "Conexão com API do WhatsApp testada com sucesso (sem telefone destino)", [
+                'ip' => $_SERVER['REMOTE_ADDR'] ?? ''
+            ]);
             $msgSuccess = "Conexão com a API do WhatsApp estabelecida com sucesso! (Cadastre um telefone em 'Dados da Empresa' para receber uma mensagem de teste no seu celular).";
         }
     } else {
+        Database::log('whatsapp_erro', "Falha ao conectar com API do WhatsApp no teste de status", [
+            'ip' => $_SERVER['REMOTE_ADDR'] ?? ''
+        ]);
         $msgError = "Falha ao conectar na API do WhatsApp. Verifique se a URL da API está correta, se o Token é válido e se você escaneou o QR Code.";
     }
 }

@@ -67,6 +67,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                     SessionGuard::registerActiveSession($cliente['id'], 'cliente');
                     Security::recordAttempt($ip, 'login', true, $loginInput, 'cliente');
+                    Security::trustCurrentDevice((int)$cliente['id'], 'cliente');
 
                     Database::log('auth_cliente', "Cliente logou no portal: {$cliente['nome']} ({$cliente['pppoe_usuario']})", [
                         'cliente_id' => $cliente['id'],

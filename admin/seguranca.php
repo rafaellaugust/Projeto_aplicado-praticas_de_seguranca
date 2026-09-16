@@ -107,6 +107,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $erro = "Erro ao revogar dispositivo: " . $e->getMessage();
                 }
             }
+        } elseif ($action === 'trust_current_device') {
+            if (!empty($_SESSION['admin_id'])) {
+                $ok = Security::trustCurrentDevice((int)$_SESSION['admin_id'], 'admin');
+                if ($ok) {
+                    Database::log('admin_seguranca', "Dispositivo atual marcado como confiável pelo admin", ['admin_id' => $_SESSION['admin_id']]);
+                    $sucesso = "Este dispositivo foi registrado como confiável com sucesso!";
+                } else {
+                    $erro = "Não foi possível registrar o dispositivo como confiável.";
+                }
+            }
         } elseif ($action === 'save_settings') {
             $max_login_attempts = (int)($_POST['max_login_attempts'] ?? 5);
             $lockout_duration_minutes = (int)($_POST['lockout_duration_minutes'] ?? 15);
@@ -155,9 +165,14 @@ try {
 
 try {
     $trusted_devices = $db->query("
-        SELECT t.*, c.nome as usuario_nome 
+        SELECT t.*, 
+               CASE 
+                   WHEN t.user_type = 'admin' THEN COALESCE(a.nome, 'Administrador') 
+                   ELSE COALESCE(c.nome, 'Cliente') 
+               END as usuario_nome 
         FROM trusted_devices t 
         LEFT JOIN clientes c ON t.user_id = c.id AND t.user_type = 'cliente' 
+        LEFT JOIN administradores a ON t.user_id = a.id AND t.user_type = 'admin' 
         WHERE t.trusted_until > NOW() 
         ORDER BY t.created_at DESC
     ")->fetchAll();
@@ -353,6 +368,21 @@ $s = array_merge([
                         <?php endforeach; endif; ?>
                     </tbody>
                 </table>
+            </div>
+
+            <!-- Botão Confiar no Dispositivo Atual -->
+            <div class="mt-3 pt-3" style="border-top: 1px solid var(--border-color);">
+                <form method="POST" class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2">
+                    <?= Security::generateCsrfToken() ?>
+                    <input type="hidden" name="action" value="trust_current_device">
+                    <div>
+                        <div class="small fw-bold text-white"><i class="fa-solid fa-shield-check text-success me-1"></i>Computador/Navegador Atual</div>
+                        <div class="small text-secondary">Salvar este dispositivo como confiável (dispensa 2FA por <?= $s['trusted_device_days'] ?> dias)</div>
+                    </div>
+                    <button type="submit" class="btn btn-outline-success btn-sm text-nowrap">
+                        <i class="fa-solid fa-laptop-medical me-1"></i>Confiar Neste Dispositivo
+                    </button>
+                </form>
             </div>
         </div>
     </div>

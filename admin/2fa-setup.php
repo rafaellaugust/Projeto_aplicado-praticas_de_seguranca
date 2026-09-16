@@ -57,7 +57,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 unset($_SESSION['totp_setup_secret'], $_SESSION['totp_setup_backup']);
                 
                 SessionGuard::registerActiveSession($admin_id, 'admin');
-                Database::log('auth', "2FA configurado com sucesso para admin: {$admin_nome}", ['ip' => $_SERVER['REMOTE_ADDR'] ?? '']);
+
+                // Registra este dispositivo como confiável após o primeiro setup
+                $deviceName = Security::getDeviceName();
+                $ip = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+                Security::trustCurrentDevice((int)$admin_id, 'admin');
+
+                Database::log('auth', "2FA configurado com sucesso para admin: {$admin_nome} (Dispositivo registrado como confiável)", [
+                    'ip' => $ip,
+                    'dispositivo' => $deviceName,
+                    'admin_id' => $admin_id
+                ]);
                 
                 header('Location: index.php');
                 exit;

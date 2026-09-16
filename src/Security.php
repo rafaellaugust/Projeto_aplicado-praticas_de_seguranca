@@ -505,6 +505,67 @@ class Security
     }
 
     /**
+     * Registra o dispositivo atual como confiável para um usuário.
+     *
+     * @param int $userId ID do usuário
+     * @param string $userType 'admin' ou 'cliente'
+     * @param int|null $days Dias de validade (padrão busca em security_settings ou 30)
+     * @param string|null $customName Nome opcional do dispositivo
+     * @return bool
+     */
+    public static function trustCurrentDevice(int $userId, string $userType = 'admin', ?int $days = null, ?string $customName = null): bool
+    {
+        try {
+            $db = Database::getInstance();
+            if ($days === null) {
+                $days = 30;
+                try {
+                    $tCfg = $db->query("SELECT trusted_device_days FROM security_settings LIMIT 1")->fetchColumn();
+                    if ($tCfg) $days = (int)$tCfg;
+                } catch (Exception $e) {}
+            }
+            
+            $deviceHash = self::getDeviceFingerprint();
+            $deviceName = $customName ?: self::getDeviceName();
+            $ip = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+
+            // Remove duplicata anterior para este mesmo dispositivo/usuário garantindo unicidade
+            $del = $db->prepare('DELETE FROM trusted_devices WHERE user_id = ? AND user_type = ? AND device_hash = ?');
+            $del->execute([$userId, $userType, $deviceHash]);
+
+            // Insere novo registro de confiança
+            $stmt = $db->prepare('
+                INSERT INTO trusted_devices (user_id, user_type, device_hash, device_name, ip_address, trusted_until, created_at) 
+                VALUES (?, ?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL ? DAY), NOW())
+            ');
+            return $stmt->execute([$userId, $userType, $deviceHash, $deviceName, $ip, $days]);
+        } catch (Exception $e) {
+            error_log('Erro ao registrar trusted device: ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Verifica se o dispositivo atual é confiável para o usuário.
+     *
+     * @param int $userId ID do usuário
+     * @param string $userType 'admin' ou 'cliente'
+     * @return bool
+     */
+    public static function isDeviceTrusted(int $userId, string $userType = 'admin'): bool
+    {
+        try {
+            $db = Database::getInstance();
+            $deviceHash = self::getDeviceFingerprint();
+            $stmt = $db->prepare('SELECT id FROM trusted_devices WHERE user_id = ? AND user_type = ? AND device_hash = ? AND trusted_until > NOW()');
+            $stmt->execute([$userId, $userType, $deviceHash]);
+            return (bool)$stmt->fetchColumn();
+        } catch (Exception $e) {
+            return false;
+        }
+    }
+
+    /**
      * Obtém a geolocalização com base no IP.
      *
      * @param string $ip O endereço IP

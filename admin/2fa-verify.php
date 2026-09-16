@@ -103,14 +103,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $_SESSION['admin_email'] = $admin['email'];
 
             if (isset($_POST['trust_device'])) {
-                $deviceHash = Security::getDeviceFingerprint();
-                $deviceName = Security::getDeviceName();
-                $stmtTrust = $db->prepare('
-                    INSERT INTO trusted_devices (user_id, user_type, device_hash, device_name, ip_address, trusted_until) 
-                    VALUES (?, "admin", ?, ?, ?, DATE_ADD(NOW(), INTERVAL 30 DAY)) 
-                    ON DUPLICATE KEY UPDATE trusted_until = DATE_ADD(NOW(), INTERVAL 30 DAY)
-                ');
-                $stmtTrust->execute([$admin['id'], $deviceHash, $deviceName, $ip]);
+                Security::trustCurrentDevice((int)$admin['id'], 'admin');
             }
 
             unset($_SESSION['pending_admin_id'], $_SESSION['pending_admin_nome'], $_SESSION['pending_admin_email']);
@@ -119,7 +112,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $db->prepare('UPDATE administradores SET last_login = NOW(), last_ip = ? WHERE id = ?')
                ->execute([$ip, $admin['id']]);
 
-            Database::log('auth', "Login 2FA bem-sucedido ({$authMode}): {$admin['nome']}", ['ip' => $ip]);
+            Database::log('auth', "Login 2FA bem-sucedido ({$authMode}): {$admin['nome']}", [
+                'ip' => $ip,
+                'modo' => $authMode,
+                'dispositivo' => Security::getDeviceName(),
+                'confiavel' => isset($_POST['trust_device']) ? 'sim' : 'nao'
+            ]);
 
             header('Location: index.php');
             exit;
