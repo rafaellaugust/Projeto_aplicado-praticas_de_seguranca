@@ -224,11 +224,11 @@ require_once __DIR__ . '/header.php';
         <table class="table-custom">
             <thead>
                 <tr>
-                    <th style="width: 70px;">ID</th>
-                    <th style="width: 150px;">Data / Hora</th>
-                    <th style="width: 140px;">Categoria</th>
-                    <th>Mensagem do Evento</th>
-                    <th style="width: 100px;" class="text-end">Detalhes</th>
+                    <th style="width: 60px;">ID</th>
+                    <th style="width: 140px;">Data / Hora</th>
+                    <th style="width: 130px;">Categoria</th>
+                    <th>Mensagem / IP / Localização</th>
+                    <th style="width: 80px;" class="text-end">Detalhes</th>
                 </tr>
             </thead>
             <tbody>
@@ -250,7 +250,7 @@ require_once __DIR__ . '/header.php';
                             if ($isErro) {
                                 $badgeClass = 'badge-atrasado';
                                 $badgeIcon = 'fa-triangle-exclamation';
-                            } elseif (in_array($tipoLower, ['auth', 'login', 'autenticacao', 'logout'])) {
+                            } elseif (in_array($tipoLower, ['auth', 'login', 'autenticacao', 'logout', 'auth_cliente', 'auth_admin', 'auth_cliente_falha', 'auth_email_2fa'])) {
                                 $badgeClass = 'badge-aviso';
                                 $badgeIcon = 'fa-user-shield';
                             } elseif (in_array($tipoLower, ['mikrotik', 'routeros'])) {
@@ -272,6 +272,17 @@ require_once __DIR__ . '/header.php';
                                 $badgeClass = 'badge-pago';
                                 $badgeIcon = 'fa-database';
                             }
+
+                            // Extrair IP, localização e dispositivo do campo detalhes JSON
+                            $detalhesArr = [];
+                            if (!empty($l['detalhes'])) {
+                                $detalhesArr = json_decode($l['detalhes'], true) ?: [];
+                            }
+                            $logIp        = $detalhesArr['ip'] ?? '';
+                            $logGeoCity   = $detalhesArr['geo_city'] ?? ($detalhesArr['cidade'] ?? '');
+                            $logGeoCountry= $detalhesArr['geo_country'] ?? ($detalhesArr['pais'] ?? '');
+                            $logUserAgent = $detalhesArr['user_agent'] ?? ($detalhesArr['dispositivo'] ?? '');
+                            $logGeo = trim(implode(', ', array_filter([$logGeoCity, $logGeoCountry])));
                         ?>
                         <tr>
                             <td class="text-secondary font-monospace small">#<?= $l['id'] ?></td>
@@ -285,14 +296,19 @@ require_once __DIR__ . '/header.php';
                                 </span>
                             </td>
                             <td>
-                                <div class="text-light fw-medium text-break">
-                                    <?= htmlspecialchars($l['mensagem']) ?>
-                                </div>
+                                <div class="text-light fw-medium text-break"><?= htmlspecialchars($l['mensagem']) ?></div>
+                                <?php if ($logIp): ?>
+                                    <div class="mt-1 d-flex flex-wrap gap-2" style="font-size:0.75rem;">
+                                        <span class="text-secondary"><i class="fa-solid fa-network-wired me-1 text-info"></i><?= htmlspecialchars($logIp) ?></span>
+                                        <?php if ($logGeo): ?><span class="text-secondary"><i class="fa-solid fa-location-dot me-1 text-warning"></i><?= htmlspecialchars($logGeo) ?></span><?php endif; ?>
+                                        <?php if ($logUserAgent): ?><span class="text-secondary text-truncate" style="max-width:200px;" title="<?= htmlspecialchars($logUserAgent) ?>"><i class="fa-solid fa-mobile-screen me-1 text-secondary"></i><?= htmlspecialchars(substr($logUserAgent, 0, 50)) ?><?= strlen($logUserAgent) > 50 ? '…' : '' ?></span><?php endif; ?>
+                                    </div>
+                                <?php endif; ?>
                             </td>
                             <td class="text-end">
                                 <?php if (!empty($l['detalhes'])): ?>
-                                    <button type="button" class="btn btn-sm btn-outline-info" onclick="verDetalhes(<?= $l['id'] ?>)" title="Ver Detalhes Técnicos">
-                                        <i class="fa-solid fa-code"></i> JSON
+                                    <button type="button" class="btn btn-sm btn-outline-info" onclick="verDetalhes(<?= $l['id'] ?>)" title="Ver JSON Técnico">
+                                        <i class="fa-solid fa-code"></i>
                                     </button>
                                     <div id="detalhes_<?= $l['id'] ?>" style="display:none;"><?= htmlspecialchars($l['detalhes']) ?></div>
                                 <?php else: ?>
@@ -305,6 +321,7 @@ require_once __DIR__ . '/header.php';
             </tbody>
         </table>
     </div>
+
 
     <!-- PAGINAÇÃO -->
     <?php if ($totalPages > 1): ?>

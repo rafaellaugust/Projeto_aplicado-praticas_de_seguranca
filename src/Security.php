@@ -574,6 +574,13 @@ class Security
     public static function renderRecaptchaWidget(): string
     {
         $siteKey = getenv('RECAPTCHA_SITE_KEY') ?: '';
+        // Tenta buscar do banco de dados
+        if (empty($siteKey)) {
+            try {
+                $db = Database::getInstance();
+                $siteKey = $db->query("SELECT recaptcha_site_key FROM configuracoes WHERE id = 1")->fetchColumn() ?: '';
+            } catch (\Exception $e) {}
+        }
         if (empty($siteKey)) {
             return ''; // Se não configurado, não quebra a interface
         }
@@ -586,11 +593,18 @@ class Security
 
     /**
      * Valida a resposta do Google reCAPTCHA.
-     * Retorna true se for válido ou se reCAPTCHA não estiver ativado no .env.
+     * Retorna true se for válido ou se reCAPTCHA não estiver ativado.
      */
     public static function verifyRecaptcha(?string $recaptchaResponse, ?string $remoteIp = null): bool
     {
         $secretKey = getenv('RECAPTCHA_SECRET_KEY') ?: '';
+        // Tenta buscar do banco de dados
+        if (empty($secretKey)) {
+            try {
+                $db = Database::getInstance();
+                $secretKey = $db->query("SELECT recaptcha_secret_key FROM configuracoes WHERE id = 1")->fetchColumn() ?: '';
+            } catch (\Exception $e) {}
+        }
         if (empty($secretKey)) {
             return true; // reCAPTCHA opcional se não configurado
         }
@@ -630,6 +644,7 @@ class Security
 
         return false;
     }
+
 
     /**
      * Gera um código de verificação em duas etapas por e-mail (6 dígitos).
@@ -705,4 +720,164 @@ class Security
 
         return false;
     }
+
+    /**
+     * Envia e-mail via SMTP autenticado usando configurações do banco ou .env.
+     * Usa stream_socket_client() nativamente (sem PHPMailer) com suporte a STARTTLS.
+     * Se SMTP não configurado, usa mail() nativo como fallback.
+     *
+     * @param string $toEmail Destinatário
+     * @param string $subject Assunto
+     * @param string $htmlBody Corpo HTML
+     * @param string|null $fromEmail Remetente (null = usa configuração)
+     * @return bool
+     */
+    public static function sendEmailSmtp(string $toEmail, string $subject, string $htmlBody, ?string $fromEmail = null): bool
+    {
+        // Carregar configurações do banco de dados (fallback para .env)
+        $smtpHost    = '';
+        $smtpPort    = 587;
+        $smtpUser    = '';
+        $smtpPass    = '';
+        $mailFrom    = $fromEmail ?? (getenv('MAIL_FROM') ?: 'no-reply@spaconett.com');
+
+        try {
+            $db = Database::getInstance();
+            $cfg = $db->query("SELECT smtp_host, smtp_port, smtp_user, smtp_pass, smtp_from FROM configuracoes WHERE id = 1")->fetch();
+            if ($cfg) {
+                $smtpHost = $cfg['smtp_host'] ?? '';
+                $smtpPort = (int)($cfg['smtp_port'] ?? 587);
+                $smtpUser = $cfg['smtp_user'] ?? '';
+                $smtpPass = $cfg['smtp_pass'] ?? '';
+                if (!empty($cfg['smtp_from'])) $mailFrom = $cfg['smtp_from'];
+            }
+        } catch (\Exception $e) {}
+
+        // Fallback para .env se banco não tiver configuração
+        if (empty($smtpHost)) {
+            $smtpHost = getenv('SMTP_HOST') ?: '';
+            $smtpPort = (int)(getenv('SMTP_PORT') ?: 587);
+            $smtpUser = getenv('SMTP_USER') ?: '';
+            $smtpPass = getenv('SMTP_PASS') ?: '';
+        }
+
+        // Se não há SMTP configurado, usa mail() nativo
+        if (empty($smtpHost)) {
+            $headers = implode("\r\n", [
+                'MIME-Version: 1.0',
+                'Content-type: text/html; charset=utf-8',
+                'From: ' . $mailFrom,
+                'Reply-To: ' . $mailFrom,
+                'X-Mailer: PHP/' . phpversion()
+            ]);
+            return @mail($toEmail, $subject, $htmlBody, $headers);
+        }
+
+        // SMTP com stream_socket_client (suporta STARTTLS na porta 587/25)
+        try {
+            $useTls  = ($smtpPort === 465);
+            $prefix  = $useTls ? 'ssl://' : '';
+            $timeout = 10;
+            $errno   = 0;
+            $errstr  = '';
+
+            $sock = @stream_socket_client("{$prefix}{$smtpHost}:{$smtpPort}", $errno, $errstr, $timeout);
+            if (!$sock) {
+                error_log("SMTP connect failed: {$errstr} ({$errno})");
+                return false;
+            }
+
+            $read = fgets($sock, 512);
+            if (strpos($read, '220') === false) { fclose($sock); return false; }
+
+            $send = function(string $cmd) use ($sock): string {
+                fwrite($sock, $cmd . "\r\n");
+                return fgets($sock, 512);
+            };
+
+            $r = $send("EHLO " . ($_SERVER['SERVER_NAME'] ?? 'localhost'));
+
+            // STARTTLS para porta 587
+            if (!$useTls && $smtpPort === 587) {
+                $r = $send("STARTTLS");
+                if (strpos($r, '220') !== false) {
+                    stream_socket_enable_crypto($sock, true, STREAM_CRYPTO_METHOD_TLS_CLIENT);
+                    $r = $send("EHLO " . ($_SERVER['SERVER_NAME'] ?? 'localhost'));
+                }
+            }
+
+            // Login
+            if (!empty($smtpUser)) {
+                $r = $send("AUTH LOGIN");
+                if (strpos($r, '334') === false) { fclose($sock); return false; }
+                $r = $send(base64_encode($smtpUser));
+                if (strpos($r, '334') === false) { fclose($sock); return false; }
+                $r = $send(base64_encode($smtpPass));
+                if (strpos($r, '235') === false) { fclose($sock); return false; }
+            }
+
+            $send("MAIL FROM:<{$mailFrom}>");
+            $send("RCPT TO:<{$toEmail}>");
+            $send("DATA");
+
+            $msgBody = "From: {$mailFrom}\r\n";
+            $msgBody .= "To: {$toEmail}\r\n";
+            $msgBody .= "Subject: =?UTF-8?B?" . base64_encode($subject) . "?=\r\n";
+            $msgBody .= "MIME-Version: 1.0\r\n";
+            $msgBody .= "Content-Type: text/html; charset=UTF-8\r\n";
+            $msgBody .= "X-Mailer: MikroTikPay/1.0\r\n";
+            $msgBody .= "\r\n";
+            $msgBody .= $htmlBody;
+            $msgBody .= "\r\n.";
+
+            $r = $send($msgBody);
+            $send("QUIT");
+            fclose($sock);
+
+            return strpos($r, '250') !== false;
+        } catch (\Exception $e) {
+            error_log("SMTP error: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Envia e-mail de recuperação de senha com link de reset.
+     *
+     * @param string $toEmail E-mail do destinatário
+     * @param string $nomeUsuario Nome para exibição
+     * @param string $resetLink URL completa do link de reset
+     * @param string $userType 'admin' ou 'cliente'
+     * @return bool
+     */
+    public static function sendPasswordResetEmail(string $toEmail, string $nomeUsuario, string $resetLink, string $userType = 'admin'): bool
+    {
+        $assunto = "Recuperação de Senha — MikroTik Pay";
+        $tipoLabel = $userType === 'admin' ? 'Administrador' : 'Portal do Assinante';
+
+        $corpo = '<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="font-family: Arial, sans-serif; background:#0f172a; color:#f8fafc; padding:20px; margin:0;">
+    <div style="max-width:500px; margin:0 auto; background:#1e293b; border-radius:12px; padding:30px; border:1px solid #334155;">
+        <div style="text-align:center; margin-bottom:24px;">
+            <h2 style="color:#0ea5e9; margin:0;">🔒 MikroTik Pay</h2>
+            <p style="color:#94a3b8; font-size:13px; margin-top:4px;">' . htmlspecialchars($tipoLabel, ENT_QUOTES, 'UTF-8') . '</p>
+        </div>
+        <p>Olá, <strong>' . htmlspecialchars($nomeUsuario, ENT_QUOTES, 'UTF-8') . '</strong>,</p>
+        <p>Recebemos uma solicitação de <strong>recuperação de senha</strong> para sua conta. Clique no botão abaixo para criar uma nova senha:</p>
+        <div style="text-align:center; margin:28px 0;">
+            <a href="' . htmlspecialchars($resetLink, ENT_QUOTES, 'UTF-8') . '" style="background:#0ea5e9; color:#fff; padding:12px 28px; border-radius:8px; text-decoration:none; font-weight:bold; font-size:16px; display:inline-block;">Redefinir Minha Senha</a>
+        </div>
+        <p style="font-size:13px; color:#94a3b8;">Ou copie e cole o link no seu navegador:</p>
+        <p style="font-size:12px; color:#38bdf8; word-break:break-all; background:#0f172a; padding:8px; border-radius:6px;">' . htmlspecialchars($resetLink, ENT_QUOTES, 'UTF-8') . '</p>
+        <hr style="border-color:#334155; margin:24px 0;">
+        <p style="font-size:12px; color:#64748b; text-align:center;">Este link é válido por <strong>15 minutos</strong>. Se você não solicitou a recuperação, ignore este e-mail. Sua senha <strong>não será alterada</strong>.</p>
+    </div>
+</body>
+</html>';
+
+        return self::sendEmailSmtp($toEmail, $assunto, $corpo);
+    }
 }
+

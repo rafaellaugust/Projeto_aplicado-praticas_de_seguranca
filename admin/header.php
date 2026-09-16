@@ -127,10 +127,11 @@ $mikrotikOnline = $mikrotikApi->testConnection();
                     <ul class="dropdown-menu dropdown-menu-dark">
                         <li><h6 class="dropdown-header text-white"><i class="fa-solid fa-user me-2 text-info"></i><?= sanitize($_SESSION['admin_nome'] ?? 'Administrador') ?></h6><small class="text-secondary px-3 d-block" style="margin-top:-8px; font-size:0.7rem;">Administrador do sistema</small></li>
                         <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="minha-conta.php"><i class="fa-solid fa-user-pen me-2 text-info"></i> Minha Conta</a></li>
                         <li><a class="dropdown-item" href="configuracoes.php"><i class="fa-solid fa-gear me-2"></i> Ajustes</a></li>
                         <li><a class="dropdown-item" href="roteadores.php"><i class="fa-solid fa-server me-2"></i> Roteadores</a></li>
                         <li><a class="dropdown-item" href="backup.php"><i class="fa-solid fa-database me-2 text-warning"></i> Backup do Banco (SQL)</a></li>
-                        <li><a class="dropdown-item" href="logs.php"><i class="fa-solid fa-clipboard-list me-2 text-info"></i> Auditoria & Logs</a></li>
+                        <li><a class="dropdown-item" href="logs.php"><i class="fa-solid fa-clipboard-list me-2 text-info"></i> Auditoria &amp; Logs</a></li>
                         <li><hr class="dropdown-divider"></li>
                         <li><a class="dropdown-item text-danger" href="logout.php"><i class="fa-solid fa-right-from-bracket me-2"></i> Sair</a></li>
                     </ul>

@@ -585,6 +585,12 @@ foreach ($allowedExtensions as $ext) {
                 <button type="submit" class="submit-btn">
                     <i class="fa-solid fa-right-to-bracket"></i> Acessar Minha Conta
                 </button>
+
+                <div class="text-center mt-3">
+                    <a href="recuperar-senha.php" style="color: var(--text-gray); font-size: 0.85rem; text-decoration: none;">
+                        <i class="fa-solid fa-key me-1"></i> Esqueceu sua senha?
+                    </a>
+                </div>
             </form>
         </div>
         

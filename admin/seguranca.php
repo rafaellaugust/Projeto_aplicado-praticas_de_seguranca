@@ -16,8 +16,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $ip = $_POST['ip'] ?? '';
             if ($ip) {
                 Security::unblockIp($ip);
-                Database::log('admin_seguranca', "IP desbloqueado: {$ip}");
+                Database::log('admin_seguranca', "IP desbloqueado: {$ip}", ['ip' => $ip, 'admin_id' => $_SESSION['admin_id']]);
                 $sucesso = "IP {$ip} desbloqueado com sucesso.";
+            }
+        } elseif ($action === 'block_ip_manual') {
+            $ip = trim($_POST['ip_bloquear'] ?? '');
+            $motivo = trim($_POST['motivo_bloquear'] ?? 'Bloqueio manual pelo administrador');
+            $horas = (int)($_POST['horas_bloquear'] ?? 24);
+            if (filter_var($ip, FILTER_VALIDATE_IP)) {
+                Security::blockIp($ip, $motivo, $horas > 0 ? $horas : null);
+                Database::log('admin_seguranca', "IP bloqueado manualmente: {$ip}", ['ip' => $ip, 'motivo' => $motivo, 'admin_id' => $_SESSION['admin_id']]);
+                $sucesso = "IP {$ip} bloqueado com sucesso por " . ($horas > 0 ? "{$horas}h" : "tempo indeterminado") . ".";
+            } else {
+                $erro = "Endereço IP inválido: {$ip}";
             }
         } elseif ($action === 'revoke_device') {
             $id = (int)($_POST['id'] ?? 0);
@@ -59,6 +70,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 }
+
 
 // Queries with silent fail if tables don't exist yet
 try {
@@ -193,7 +205,7 @@ $s = array_merge([
                             <tr><td colspan="4" class="text-center text-secondary">Nenhum IP bloqueado.</td></tr>
                         <?php else: foreach ($blocked_ips as $ipb): ?>
                             <tr>
-                                <td><?= sanitize($ipb['ip_address']) ?></td>
+                                <td class="font-monospace small text-danger fw-bold"><?= sanitize($ipb['ip_address']) ?></td>
                                 <td><small class="text-secondary"><?= sanitize($ipb['reason']) ?></small></td>
                                 <td><small><?= $ipb['blocked_until'] ? date('d/m/Y H:i', strtotime($ipb['blocked_until'])) : 'Permanente' ?></small></td>
                                 <td>
@@ -208,6 +220,33 @@ $s = array_merge([
                         <?php endforeach; endif; ?>
                     </tbody>
                 </table>
+            </div>
+
+            <!-- Formulário Bloquear IP Manualmente -->
+            <div class="mt-3 pt-3" style="border-top: 1px solid var(--border-color);">
+                <form method="POST" class="row g-2 align-items-end">
+                    <?= Security::generateCsrfToken() ?>
+                    <input type="hidden" name="action" value="block_ip_manual">
+                    <div class="col-md-5">
+                        <label class="form-label small text-secondary mb-1">Bloquear IP Manualmente</label>
+                        <input type="text" name="ip_bloquear" class="form-control-custom" placeholder="Ex: 192.168.1.50" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small text-secondary mb-1">Duração</label>
+                        <select name="horas_bloquear" class="form-control-custom">
+                            <option value="1">1 hora</option>
+                            <option value="6">6 horas</option>
+                            <option value="24" selected>24 horas (1 dia)</option>
+                            <option value="168">7 dias</option>
+                            <option value="0">Permanente</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <button type="submit" class="btn btn-outline-danger w-100">
+                            <i class="fa-solid fa-ban me-1"></i>Bloquear
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>

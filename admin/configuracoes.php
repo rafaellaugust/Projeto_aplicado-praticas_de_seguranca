@@ -17,7 +17,42 @@ try {
     if ((int)$stmtAppCheck->fetchColumn() === 0) {
         $db->exec("ALTER TABLE `configuracoes` ADD COLUMN `app_url` VARCHAR(255) DEFAULT 'https://aplicacao.spaconett.com'");
     }
+
+    // Colunas SMTP
+    $smtpCheck = $db->prepare("SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'configuracoes' AND COLUMN_NAME = 'smtp_host'");
+    $smtpCheck->execute([DB_NAME]);
+    if ((int)$smtpCheck->fetchColumn() === 0) {
+        $db->exec("ALTER TABLE `configuracoes` ADD COLUMN `smtp_host` VARCHAR(255) DEFAULT NULL");
+        $db->exec("ALTER TABLE `configuracoes` ADD COLUMN `smtp_port` SMALLINT DEFAULT 587");
+        $db->exec("ALTER TABLE `configuracoes` ADD COLUMN `smtp_user` VARCHAR(255) DEFAULT NULL");
+        $db->exec("ALTER TABLE `configuracoes` ADD COLUMN `smtp_pass` VARCHAR(255) DEFAULT NULL");
+        $db->exec("ALTER TABLE `configuracoes` ADD COLUMN `smtp_from` VARCHAR(255) DEFAULT NULL");
+    }
+
+    // Colunas reCAPTCHA
+    $rcCheck = $db->prepare("SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'configuracoes' AND COLUMN_NAME = 'recaptcha_site_key'");
+    $rcCheck->execute([DB_NAME]);
+    if ((int)$rcCheck->fetchColumn() === 0) {
+        $db->exec("ALTER TABLE `configuracoes` ADD COLUMN `recaptcha_site_key` VARCHAR(255) DEFAULT NULL");
+        $db->exec("ALTER TABLE `configuracoes` ADD COLUMN `recaptcha_secret_key` VARCHAR(255) DEFAULT NULL");
+    }
+
+    // Tabela password_resets
+    $db->exec("CREATE TABLE IF NOT EXISTS `password_resets` (
+        `id` INT NOT NULL AUTO_INCREMENT,
+        `email` VARCHAR(150) NOT NULL,
+        `user_type` ENUM('admin','cliente') NOT NULL DEFAULT 'admin',
+        `token_hash` VARCHAR(64) NOT NULL,
+        `expires_at` DATETIME NOT NULL,
+        `used` TINYINT(1) NOT NULL DEFAULT 0,
+        `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (`id`),
+        KEY `idx_token` (`token_hash`),
+        KEY `idx_email_type` (`email`, `user_type`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
 } catch (Exception $e) {}
+
 
 // Testar Credenciais do Mercado Pago — via AJAX (ajax=1) para não travar a página
 if (isset($_GET['ajax']) && $_GET['ajax'] === 'testar_mp') {
@@ -68,6 +103,29 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'testar_webhook_callback') {
     exit;
 }
 
+// Testar SMTP — via AJAX
+if (isset($_GET['ajax']) && $_GET['ajax'] === 'testar_smtp') {
+    header('Content-Type: application/json; charset=utf-8');
+    try {
+        $db = Database::getInstance();
+        $cfg = $db->query("SELECT smtp_host, smtp_port, smtp_user, smtp_pass, smtp_from, empresa_nome FROM configuracoes WHERE id = 1")->fetch();
+        $toEmail = $cfg['smtp_from'] ?? (getenv('MAIL_FROM') ?: '');
+        if (empty($toEmail)) {
+            echo json_encode(['success' => false, 'message' => 'Configure um e-mail remetente (SMTP From) antes de testar.']);
+            exit;
+        }
+        $corpo = '<div style="font-family:Arial; padding:20px; background:#1e293b; color:#f8fafc; border-radius:8px;"><h3 style="color:#0ea5e9;">✅ Teste SMTP — MikroTik Pay</h3><p>Conexão SMTP configurada com sucesso! Esta é uma mensagem de teste enviada pelo painel.</p></div>';
+        $ok = Security::sendEmailSmtp($toEmail, '✅ Teste SMTP — MikroTik Pay', $corpo);
+        echo json_encode([
+            'success' => $ok,
+            'message' => $ok ? "E-mail de teste enviado para {$toEmail} com sucesso!" : "Falha ao enviar e-mail. Verifique as credenciais SMTP."
+        ]);
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    }
+    exit;
+}
+
 require_once __DIR__ . '/header.php';
 
 $db = Database::getInstance();
@@ -106,6 +164,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $webhookCallbackUrl = sanitize($_POST['webhook_callback_url'] ?? '');
     $webhookCallbackAtivo = isset($_POST['webhook_callback_ativo']) ? 1 : 0;
 
+    // SMTP
+    $smtpHost = sanitize($_POST['smtp_host'] ?? '');
+    $smtpPort = (int)($_POST['smtp_port'] ?? 587);
+    $smtpUser = sanitize($_POST['smtp_user'] ?? '');
+    $smtpPass = $_POST['smtp_pass'] ?? '';  // senha não precisa de htmlspecialchars
+    $smtpFrom = sanitize($_POST['smtp_from'] ?? '');
+
+    // reCAPTCHA
+    $recaptchaSiteKey   = sanitize($_POST['recaptcha_site_key'] ?? '');
+    $recaptchaSecretKey = sanitize($_POST['recaptcha_secret_key'] ?? '');
+
     try {
         $stmt = $db->prepare("
             UPDATE configuracoes SET 
@@ -115,7 +184,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 gateway_provider = ?, mp_public_key = ?, mp_access_token = ?, mp_client_id = ?, mp_client_secret = ?, mp_sandbox = ?,
                 pix_chave_estatica = ?, pix_nome_beneficiario = ?, pix_cidade_beneficiario = ?,
                 webhook_secret = ?,
-                webhook_callback_url = ?, webhook_callback_ativo = ?
+                webhook_callback_url = ?, webhook_callback_ativo = ?,
+                smtp_host = ?, smtp_port = ?, smtp_user = ?, smtp_pass = ?, smtp_from = ?,
+                recaptcha_site_key = ?, recaptcha_secret_key = ?
             WHERE id = 1
         ");
         $stmt->execute([
@@ -125,7 +196,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $gatewayProvider, $mpPublicKey, $mpAccessToken, $mpClientId, $mpClientSecret, $mpSandbox,
             $pixChaveEstatica, $pixNomeBeneficiario, $pixCidadeBeneficiario,
             $webhookSecret,
-            $webhookCallbackUrl, $webhookCallbackAtivo
+            $webhookCallbackUrl, $webhookCallbackAtivo,
+            $smtpHost, $smtpPort, $smtpUser, $smtpPass, $smtpFrom,
+            $recaptchaSiteKey, $recaptchaSecretKey
         ]);
 
         // Sincronizar php_base_url no config.json do whatsapp-api
@@ -418,6 +491,69 @@ $macroDroidUrlFull = BASE_URL . "/payment/pix.php?client_name=NOME_DO_CLIENTE";
             </div>
         </div>
 
+        <!-- 6. CONFIGURAÇÕES DE E-MAIL (SMTP) -->
+        <div class="col-md-6">
+            <div class="card-custom h-100">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="text-white fw-bold mb-0"><i class="fa-solid fa-envelope text-info me-2"></i>E-mail SMTP (Recuperação de Senha / 2FA)</h5>
+                    <button type="button" class="btn btn-sm btn-outline-info" onclick="testarSmtp()" id="btnTestarSmtp">
+                        <i class="fa-solid fa-paper-plane me-1"></i> Testar Envio
+                    </button>
+                </div>
+                <div id="resultadoSmtp" class="mb-3" style="display:none"></div>
+                <div class="mb-3">
+                    <label class="form-label small text-secondary">Servidor SMTP (Host)</label>
+                    <input type="text" name="smtp_host" class="form-control-custom" value="<?= sanitize($config['smtp_host'] ?? '') ?>" placeholder="smtp.gmail.com ou smtp.spaconett.com">
+                    <small class="text-secondary d-block mt-1">Deixe em branco para usar o <code>mail()</code> nativo do servidor.</small>
+                </div>
+                <div class="row g-2 mb-3">
+                    <div class="col-4">
+                        <label class="form-label small text-secondary">Porta</label>
+                        <input type="number" name="smtp_port" class="form-control-custom" value="<?= (int)($config['smtp_port'] ?? 587) ?>" placeholder="587">
+                        <small class="text-secondary" style="font-size:10px;">587=TLS / 465=SSL</small>
+                    </div>
+                    <div class="col-8">
+                        <label class="form-label small text-secondary">E-mail Remetente (From)</label>
+                        <input type="email" name="smtp_from" class="form-control-custom" value="<?= sanitize($config['smtp_from'] ?? '') ?>" placeholder="no-reply@spaconett.com">
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small text-secondary">Usuário SMTP</label>
+                    <input type="text" name="smtp_user" class="form-control-custom" value="<?= sanitize($config['smtp_user'] ?? '') ?>" placeholder="seu-email@gmail.com">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small text-secondary">Senha SMTP (App Password)</label>
+                    <input type="password" name="smtp_pass" class="form-control-custom" value="<?= sanitize($config['smtp_pass'] ?? '') ?>" placeholder="••••••••••••">
+                    <small class="text-secondary d-block mt-1"><i class="fa-solid fa-circle-info text-warning me-1"></i>Para Gmail: use <a href="https://myaccount.google.com/apppasswords" target="_blank" class="text-info">App Password</a> (não a senha da conta).</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- 7. GOOGLE reCAPTCHA v2 -->
+        <div class="col-md-6">
+            <div class="card-custom h-100">
+                <h5 class="text-white fw-bold mb-3"><i class="fa-brands fa-google text-success me-2"></i>Google reCAPTCHA v2</h5>
+                <p class="text-secondary small mb-3">
+                    O reCAPTCHA protege as páginas de login (admin e cliente) contra bots e ataques de força bruta automatizados.
+                    Obtenha as chaves em <a href="https://www.google.com/recaptcha/admin/create" target="_blank" class="text-info">google.com/recaptcha</a>.
+                </p>
+                <div class="mb-3">
+                    <label class="form-label small text-secondary">Site Key (Chave Pública)</label>
+                    <input type="text" name="recaptcha_site_key" class="form-control-custom font-monospace" value="<?= sanitize($config['recaptcha_site_key'] ?? '') ?>" placeholder="6LcXXXXXXXXXXXXXXXXXXXXXXXXXXXX">
+                    <small class="text-secondary d-block mt-1">Usada no HTML da página (visível ao usuário).</small>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small text-secondary">Secret Key (Chave Secreta)</label>
+                    <input type="password" name="recaptcha_secret_key" class="form-control-custom font-monospace" value="<?= sanitize($config['recaptcha_secret_key'] ?? '') ?>" placeholder="6LcXXXXXXXXXXXXXXXXXXXXXXXXXXXX">
+                    <small class="text-secondary d-block mt-1">Usada no servidor para validar as respostas.</small>
+                </div>
+                <div class="alert alert-info py-2 mb-0">
+                    <i class="fa-solid fa-circle-info me-1"></i>
+                    <strong>Como funciona:</strong> Se as chaves estiverem configuradas, o widget aparece automaticamente nas páginas de login. Se estiverem vazias, o reCAPTCHA é ignorado.
+                </div>
+            </div>
+        </div>
+
         <div class="col-12 text-end">
             <button type="submit" class="btn btn-primary-custom btn-lg">
                 <i class="fa-solid fa-floppy-disk me-2"></i> Salvar Todas as Configurações
@@ -469,6 +605,28 @@ async function testarWebhookCallback() {
     btn.disabled = false;
     btn.innerHTML = 'Testar Webhook';
 }
+
+async function testarSmtp() {
+    const btn = document.getElementById('btnTestarSmtp');
+    const res = document.getElementById('resultadoSmtp');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i> Enviando...';
+    res.style.display = 'none';
+    try {
+        const r = await fetch('configuracoes.php?ajax=testar_smtp');
+        const d = await r.json();
+        res.style.display = 'block';
+        res.innerHTML = d.success
+            ? '<div class="alert alert-success py-2 mb-0"><i class="fa-solid fa-circle-check me-2"></i><strong>Enviado!</strong> ' + d.message + '</div>'
+            : '<div class="alert alert-danger py-2 mb-0"><i class="fa-solid fa-triangle-exclamation me-2"></i><strong>Falhou:</strong> ' + d.message + '</div>';
+    } catch(e) {
+        res.style.display = 'block';
+        res.innerHTML = '<div class="alert alert-danger py-2 mb-0">Erro de conexão: ' + e.message + '</div>';
+    }
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fa-solid fa-paper-plane me-1"></i> Testar Envio';
+}
 </script>
 <?php require_once __DIR__ . '/footer.php'; ?>
+
 

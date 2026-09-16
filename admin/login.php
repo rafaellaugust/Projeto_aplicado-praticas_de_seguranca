@@ -140,7 +140,8 @@ if (Security::isIpBlocked($ip)) {
                             <button type="submit" class="btn btn-primary w-100 py-2 fw-bold">Entrar</button>
                         </form>
                         
-                        <div class="text-center mt-4">
+                        <div class="d-flex justify-content-between align-items-center mt-4 small">
+                            <a href="recuperar-senha.php" class="text-decoration-none text-info"><i class="fa-solid fa-key me-1"></i>Esqueceu a senha?</a>
                             <a href="../cliente/login.php" class="text-decoration-none text-muted">Acesso do Cliente</a>
                         </div>
                     </div>
