@@ -107,7 +107,7 @@ function getSystemBaseUrl(): string {
     }
 
     // 4. Fallback padrão
-    $cachedUrl = 'https://aplicacao.spaconett.com';
+    $cachedUrl = 'https://projeto.spaconett.com';
     return $cachedUrl;
 }
 
