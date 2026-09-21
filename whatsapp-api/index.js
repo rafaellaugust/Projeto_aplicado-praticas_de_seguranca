@@ -476,18 +476,44 @@ process.on('unhandledRejection', (reason, promise) => {
     handleCryptoError(reason);
 });
 
-// Middleware de Autenticação
-function authenticateToken(req, res, next) {
+// Função para verificar se a requisição está autorizada
+function isRequestAuthorized(req) {
     if (!SECRET_TOKEN || SECRET_TOKEN.trim() === '') {
+        return true;
+    }
+
+    // 1. Header Authorization: Bearer <token>
+    const authHeader = req.headers['authorization'];
+    const bearerToken = authHeader && authHeader.split(' ')[1];
+    if (bearerToken && bearerToken === SECRET_TOKEN) return true;
+
+    // 2. Custom header (x-api-token ou x-token)
+    const customHeader = req.headers['x-api-token'] || req.headers['x-token'];
+    if (customHeader && customHeader === SECRET_TOKEN) return true;
+
+    // 3. Query string (?token=... ou ?key=...)
+    const queryToken = req.query && (req.query.token || req.query.key);
+    if (queryToken && queryToken === SECRET_TOKEN) return true;
+
+    // 4. Cookie de autenticação seguro (wa_auth_token)
+    const cookies = req.headers.cookie;
+    if (cookies) {
+        const match = cookies.match(/(?:^|;\s*)wa_auth_token=([^;]+)/);
+        if (match && match[1] && decodeURIComponent(match[1]) === SECRET_TOKEN) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+// Middleware de Autenticação para APIs
+function authenticateToken(req, res, next) {
+    if (isRequestAuthorized(req)) {
         return next();
     }
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
-    if (!token || token !== SECRET_TOKEN) {
-        console.warn('[API] Tentativa de acesso não autorizado de:', req.ip);
-        return res.status(403).json({ error: 'Token inválido ou ausente' });
-    }
-    next();
+    console.warn('[API] Tentativa de acesso não autorizado de:', req.ip);
+    return res.status(403).json({ error: 'Acesso não autorizado. Token inválido ou ausente.' });
 }
 
 // Health check para monitoramento
@@ -712,7 +738,65 @@ async function initWhatsApp() {
 const router = express.Router();
 
 router.get('/', (req, res) => {
-    const basePath = req.baseUrl;
+    const basePath = req.baseUrl || '';
+
+    // Se o token foi informado via query string (?token=... ou ?key=...) e for válido, salva cookie seguro
+    const queryToken = req.query && (req.query.token || req.query.key);
+    if (queryToken && queryToken === SECRET_TOKEN) {
+        const isHttps = req.secure || req.headers['x-forwarded-proto'] === 'https';
+        const secureFlag = isHttps ? '; Secure' : '';
+        res.setHeader('Set-Cookie', `wa_auth_token=${encodeURIComponent(SECRET_TOKEN)}; Path=${basePath || '/'}; HttpOnly; SameSite=Strict; Max-Age=86400${secureFlag}`);
+    }
+
+    // Se a requisição NÃO estiver autorizada, bloqueia e exibe a tela de login
+    if (!isRequestAuthorized(req)) {
+        return res.status(401).send(`
+            <!DOCTYPE html>
+            <html lang="pt-br">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Acesso Restrito - WhatsApp API</title>
+                <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+                <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+                <style>
+                    body { background-color: #0b1329; color: #f8fafc; font-family: system-ui, -apple-system, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+                    .card-auth { background: #1e293b; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 18px; box-shadow: 0 20px 40px rgba(0,0,0,0.5); width: 100%; max-width: 420px; padding: 2.5rem; text-align: center; }
+                    .lock-icon { width: 68px; height: 68px; background: rgba(239, 68, 68, 0.15); color: #ef4444; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 2rem; margin-bottom: 1.25rem; }
+                    .form-control { background-color: #0f172a; border-color: #334155; color: #fff; padding: 0.75rem 1rem; border-radius: 10px; }
+                    .form-control:focus { background-color: #0f172a; border-color: #10b981; color: #fff; box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.25); }
+                    .btn-enter { background: #10b981; border: none; font-weight: 600; padding: 0.75rem; border-radius: 10px; width: 100%; transition: all 0.2s ease; }
+                    .btn-enter:hover { background: #059669; color: #fff; }
+                </style>
+            </head>
+            <body>
+                <div class="card-auth">
+                    <div class="lock-icon">
+                        <i class="bi bi-shield-lock-fill"></i>
+                    </div>
+                    <h4 class="fw-bold mb-1">Área Restrita</h4>
+                    <p class="text-secondary small mb-4">Painel de Controle da API WhatsApp</p>
+                    <form method="POST" action="${basePath}/login">
+                        <div class="mb-3 text-start">
+                            <label class="form-label small text-secondary fw-semibold">CHAVE DE ACESSO (BEARER TOKEN):</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-dark text-secondary border-secondary"><i class="bi bi-key-fill"></i></span>
+                                <input type="password" name="token" class="form-control" placeholder="Informe a chave da API..." required autofocus>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-enter text-white mt-2">
+                            <i class="bi bi-box-arrow-in-right me-1"></i> Desbloquear Painel
+                        </button>
+                    </form>
+                    <div class="mt-4 pt-3 border-top border-secondary text-muted small" style="font-size: 0.75rem;">
+                        <i class="bi bi-info-circle me-1"></i> Acesso permitido apenas para administradores autenticados do provedor.
+                    </div>
+                </div>
+            </body>
+            </html>
+        `);
+    }
+
     let statusBadge = '';
     let content = '';
 
@@ -971,7 +1055,10 @@ router.get('/', (req, res) => {
             <div class="container py-5">
                 <div class="row justify-content-center">
                     <div class="col-lg-7 col-md-9 col-12">
-                        <div class="card p-5 text-center shadow-lg">
+                        <div class="card p-5 text-center shadow-lg position-relative">
+                            <div class="position-absolute top-0 end-0 p-3">
+                                <a href="${basePath}/logout" class="btn btn-outline-danger btn-sm" title="Bloquear Painel / Sair"><i class="bi bi-lock-fill me-1"></i>Bloquear</a>
+                            </div>
                             <h2 class="fw-bold mb-1"><i class="bi bi-whatsapp text-success me-2"></i>WhatsApp API</h2>
                             <p class="text-secondary small">Integração com Sistema de Cobrança</p>
                             <div class="my-4">${statusBadge}</div>
@@ -990,7 +1077,46 @@ router.get('/', (req, res) => {
     `);
 });
 
-router.get('/api/status-raw', (req, res) => {
+router.post('/login', express.urlencoded({ extended: true }), (req, res) => {
+    const basePath = req.baseUrl || '';
+    const submittedToken = req.body && req.body.token ? req.body.token.trim() : '';
+
+    if (SECRET_TOKEN && submittedToken === SECRET_TOKEN) {
+        const isHttps = req.secure || req.headers['x-forwarded-proto'] === 'https';
+        const secureFlag = isHttps ? '; Secure' : '';
+        res.setHeader('Set-Cookie', `wa_auth_token=${encodeURIComponent(SECRET_TOKEN)}; Path=${basePath || '/'}; HttpOnly; SameSite=Strict; Max-Age=86400${secureFlag}`);
+        return res.redirect((basePath || '') + '/');
+    }
+
+    return res.status(403).send(`
+        <!DOCTYPE html>
+        <html lang="pt-br">
+        <head>
+            <meta charset="UTF-8">
+            <title>Acesso Negado</title>
+            <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+            <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+            <style>body { background: #0b1329; color: #fff; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; font-family: system-ui; }</style>
+        </head>
+        <body>
+            <div class="text-center p-4" style="background:#1e293b; border-radius:16px; border:1px solid #334155; max-width:400px;">
+                <div class="mb-3 text-danger fs-1"><i class="bi bi-shield-x"></i></div>
+                <h4 class="text-danger mb-2">Chave Incorreta</h4>
+                <p class="text-secondary small mb-3">O token informado não é válido para autenticar esta sessão.</p>
+                <a href="${basePath}/" class="btn btn-primary btn-sm px-4">Tentar novamente</a>
+            </div>
+        </body>
+        </html>
+    `);
+});
+
+router.get('/logout', (req, res) => {
+    const basePath = req.baseUrl || '';
+    res.setHeader('Set-Cookie', `wa_auth_token=; Path=${basePath || '/'}; HttpOnly; SameSite=Strict; Max-Age=0`);
+    res.redirect((basePath || '') + '/');
+});
+
+router.get('/api/status-raw', authenticateToken, (req, res) => {
     res.json({
         status: sessionStatus,
         reconnectAttempts: reconnectAttempts,
@@ -998,14 +1124,14 @@ router.get('/api/status-raw', (req, res) => {
     });
 });
 
-router.get('/api/presence-settings', (req, res) => {
+router.get('/api/presence-settings', authenticateToken, (req, res) => {
     res.json({
         success: true,
         presenceConfig
     });
 });
 
-router.post('/api/presence-settings', (req, res) => {
+router.post('/api/presence-settings', authenticateToken, (req, res) => {
     const { mode, simulateTyping, typingDelay } = req.body || {};
     updatePresenceConfig({ mode, simulateTyping, typingDelay });
     res.json({
@@ -1015,7 +1141,7 @@ router.post('/api/presence-settings', (req, res) => {
     });
 });
 
-router.get('/api/view-log', (req, res) => {
+router.get('/api/view-log', authenticateToken, (req, res) => {
     const logPath = path.join(__dirname, 'error.log');
     if (fs.existsSync(logPath)) {
         res.setHeader('Content-Type', 'text/plain; charset=utf-8');
@@ -1025,7 +1151,7 @@ router.get('/api/view-log', (req, res) => {
     }
 });
 
-router.post('/api/init-session', (req, res) => {
+router.post('/api/init-session', authenticateToken, (req, res) => {
     const basePath = req.baseUrl;
     if (sessionStatus === 'DISCONNECTED') {
         initWhatsApp();
@@ -1033,12 +1159,12 @@ router.post('/api/init-session', (req, res) => {
     res.redirect(basePath + '/');
 });
 
-router.post('/api/force-reconnect', (req, res) => {
+router.post('/api/force-reconnect', authenticateToken, (req, res) => {
     forceReconnect();
     res.json({ success: true, message: 'Reconexão iniciada' });
 });
 
-router.post('/api/reset-session', (req, res) => {
+router.post('/api/reset-session', authenticateToken, (req, res) => {
     try {
         if (sock) {
             try { sock.end(); } catch (e) {}
@@ -1057,7 +1183,7 @@ router.post('/api/reset-session', (req, res) => {
     }
 });
 
-router.post('/api/repair-sessions', async (req, res) => {
+router.post('/api/repair-sessions', authenticateToken, async (req, res) => {
     try {
         console.log('[API] Reparo manual de criptografia solicitado.');
         const removed = purgeAllContactSessions();

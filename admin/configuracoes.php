@@ -446,8 +446,10 @@ $macroDroidUrlFull = BASE_URL . "/payment/pix.php?client_name=NOME_DO_CLIENTE";
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h5 class="text-white fw-bold mb-0"><i class="fa-brands fa-whatsapp text-success me-2"></i>API WhatsApp (Baileys)</h5>
                     <div class="d-flex gap-2">
-                        <?php if (!empty($config['wa_api_url'])): ?>
-                            <a href="<?= sanitize($config['wa_api_url']) ?>" target="_blank" class="btn btn-sm btn-outline-info" title="Abrir Painel de Status /whatsapp/"><i class="fa-solid fa-arrow-up-right-from-square me-1"></i>Painel API</a>
+                        <?php 
+                        $waUrlWithToken = !empty($config['wa_api_url']) ? rtrim($config['wa_api_url'], '/') . (!empty($config['wa_token']) ? '/?token=' . urlencode($config['wa_token']) : '/') : '';
+                        if (!empty($waUrlWithToken)): ?>
+                            <a href="<?= sanitize($waUrlWithToken) ?>" target="_blank" class="btn btn-sm btn-outline-info" title="Abrir Painel de Status /whatsapp/"><i class="fa-solid fa-arrow-up-right-from-square me-1"></i>Painel API</a>
                         <?php endif; ?>
                         <a href="configuracoes.php?testar_whatsapp=1" class="btn btn-sm btn-outline-success">Testar WhatsApp</a>
                     </div>
@@ -468,8 +470,8 @@ $macroDroidUrlFull = BASE_URL . "/payment/pix.php?client_name=NOME_DO_CLIENTE";
                 </div>
                 <div class="mt-2 d-flex gap-2">
                     <a href="disparos_whatsapp.php" class="btn btn-outline-info flex-grow-1 btn-sm"><i class="fa-solid fa-paper-plane me-2"></i>Configurar Agendador & Disparos</a>
-                    <?php if (!empty($config['wa_api_url'])): ?>
-                        <a href="<?= sanitize($config['wa_api_url']) ?>" target="_blank" class="btn btn-outline-success btn-sm"><i class="fa-brands fa-whatsapp me-1"></i>Painel /whatsapp/</a>
+                    <?php if (!empty($waUrlWithToken)): ?>
+                        <a href="<?= sanitize($waUrlWithToken) ?>" target="_blank" class="btn btn-outline-success btn-sm"><i class="fa-brands fa-whatsapp me-1"></i>Painel /whatsapp/</a>
                     <?php endif; ?>
                 </div>
             </div>
