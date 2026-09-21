@@ -35,15 +35,81 @@ $mikrotikOnline = $mikrotikApi->testConnection();
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="../assets/css/style.css">
     <style>
+        .navbar-custom {
+            background: rgba(30, 41, 59, 0.95);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border-color);
+            padding: 8px 18px;
+        }
+        .navbar-custom .navbar-brand {
+            font-size: 1.2rem;
+            margin-right: 12px;
+            flex-shrink: 0;
+        }
+        .navbar-custom .navbar-nav {
+            gap: 2px;
+        }
         .navbar-custom .nav-link {
             white-space: nowrap;
-            font-size: 0.9rem;
-            padding: 2px 6px !important;
+            font-size: 0.88rem;
+            padding: 6px 8px !important;
             border-radius: 6px;
             transition: background 0.2s;
         }
         .navbar-custom .nav-link:hover { background: rgba(255,255,255,0.08); }
-        .navbar-custom .nav-link i { width: 18px; text-align: center; }
+        .navbar-custom .nav-link i { width: 16px; text-align: center; }
+
+        /* Ajuste fino para telas intermediarias e notebooks (1400px - 1600px) */
+        @media (max-width: 1600px) {
+            .navbar-custom {
+                padding: 6px 12px;
+            }
+            .navbar-custom .navbar-brand {
+                font-size: 1.1rem;
+                margin-right: 8px;
+            }
+            .navbar-custom .navbar-nav {
+                gap: 1px;
+            }
+            .navbar-custom .nav-link {
+                font-size: 0.82rem;
+                padding: 4px 6px !important;
+            }
+            .navbar-custom .nav-link i {
+                width: 14px;
+                margin-right: 3px !important;
+            }
+        }
+
+        /* Ajuste para telas menores antes do colapso mobile (1200px - 1400px) */
+        @media (max-width: 1380px) {
+            .navbar-custom {
+                padding: 5px 8px;
+            }
+            .navbar-custom .navbar-brand {
+                font-size: 1.05rem;
+                margin-right: 6px;
+            }
+            .navbar-custom .nav-link {
+                font-size: 0.76rem;
+                padding: 3px 4px !important;
+                letter-spacing: -0.2px;
+            }
+            .navbar-custom .nav-link i {
+                width: 12px;
+                font-size: 0.75rem;
+                margin-right: 2px !important;
+            }
+            .status-stack .badge {
+                font-size: 0.65rem;
+                padding: 2px 5px;
+            }
+            .admin-icon-btn {
+                width: 32px;
+                height: 32px;
+            }
+        }
+
         .status-stack .badge {
             font-size: 0.7rem;
             padding: 4px 8px;
@@ -66,6 +132,7 @@ $mikrotikOnline = $mikrotikApi->testConnection();
             border: 1px solid rgba(255,255,255,0.15);
             color: #fff;
             transition: all 0.2s;
+            flex-shrink: 0;
         }
         .admin-icon-btn:hover {
             background: rgba(255,255,255,0.15);
@@ -91,15 +158,15 @@ $mikrotikOnline = $mikrotikApi->testConnection();
 <body>
 
 <nav class="navbar navbar-expand-xl navbar-custom sticky-top py-2">
-    <div class="container-fluid px-3">
-        <a class="navbar-brand brand-title d-flex align-items-center gap-2 me-3" href="index.php">
+    <div class="container-fluid px-2 px-lg-3">
+        <a class="navbar-brand brand-title d-flex align-items-center gap-2" href="index.php">
             <i class="fa-solid fa-network-wired text-info"></i> <?= htmlspecialchars(getEmpresaNome()) ?>
         </a>
         <button class="navbar-toggler text-white border-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#adminNavbar">
             <i class="fa-solid fa-bars"></i>
         </button>
         <div class="collapse navbar-collapse" id="adminNavbar">
-            <ul class="navbar-nav me-auto mb-2 mb-xl-0 gap-1">
+            <ul class="navbar-nav me-auto mb-2 mb-xl-0" style="gap: 2px;">
                 <li class="nav-item"><a class="nav-link text-light fw-medium" href="index.php"><i class="fa-solid fa-chart-line me-1 text-info"></i> Dashboard</a></li>
                 <li class="nav-item"><a class="nav-link text-light fw-medium" href="caixa.php"><i class="fa-solid fa-cash-register me-1 text-success"></i> Caixa</a></li>
                 <li class="nav-item"><a class="nav-link text-light fw-medium" href="historico.php"><i class="fa-solid fa-calendar-days me-1 text-warning"></i> Histórico</a></li>
@@ -114,8 +181,8 @@ $mikrotikOnline = $mikrotikApi->testConnection();
                 <li class="nav-item"><a class="nav-link text-light fw-medium" href="seguranca.php"><i class="fa-solid fa-shield-halved me-1 text-danger"></i> Segurança</a></li>
              </ul>
 
-            <div class="d-flex align-items-center gap-3 ms-xl-3">
-                <div class="status-stack d-flex flex-column gap-1 align-items-end">
+            <div class="d-flex align-items-center gap-2 gap-lg-3 ms-auto flex-shrink-0">
+                <div class="status-stack d-flex flex-column gap-1 align-items-end flex-shrink-0">
                     <span class="badge <?= $mikrotikOnline ? 'badge-ativo' : 'badge-atrasado' ?>">
                         <i class="fa-solid fa-server me-1"></i> MK: <?= $mikrotikOnline ? 'Online' : 'Offline' ?>
                     </span>
@@ -125,7 +192,7 @@ $mikrotikOnline = $mikrotikApi->testConnection();
                 </div>
 
                 <!-- SÓ BOTÃO COM ICONE ADM -->
-                <div class="dropdown admin-dropdown">
+                <div class="dropdown admin-dropdown flex-shrink-0">
                     <button class="admin-icon-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="<?= sanitize($_SESSION['admin_nome'] ?? 'Administrador') ?>">
                         <i class="fa-solid fa-user-gear"></i>
                     </button>
