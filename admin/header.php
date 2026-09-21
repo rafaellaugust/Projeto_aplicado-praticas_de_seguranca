@@ -38,7 +38,7 @@ $mikrotikOnline = $mikrotikApi->testConnection();
         .navbar-custom .nav-link {
             white-space: nowrap;
             font-size: 0.9rem;
-            padding: 6px 7px !important;
+            padding: 2px 6px !important;
             border-radius: 6px;
             transition: background 0.2s;
         }

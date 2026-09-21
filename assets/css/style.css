@@ -34,7 +34,10 @@ body {
     background: rgba(30, 41, 59, 0.95);
     backdrop-filter: blur(12px);
     border-bottom: 1px solid var(--border-color);
-    padding: 12px 24px;
+}
+
+.navbar-custom .nav-link {
+    padding: 2px 6px !important;
 }
 
 .brand-title {
