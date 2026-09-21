@@ -34,7 +34,7 @@ body {
     background: rgba(30, 41, 59, 0.95);
     backdrop-filter: blur(12px);
     border-bottom: 1px solid var(--border-color);
-    padding: 12px 24px;
+    
 }
 
 .brand-title {

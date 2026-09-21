@@ -38,7 +38,7 @@ $mikrotikOnline = $mikrotikApi->testConnection();
         .navbar-custom .nav-link {
             white-space: nowrap;
             font-size: 0.9rem;
-            padding: 6px 7px !important;
+            padding: 2px 0px !important;
             border-radius: 6px;
             transition: background 0.2s;
         }
@@ -46,7 +46,7 @@ $mikrotikOnline = $mikrotikApi->testConnection();
         .navbar-custom .nav-link i { width: 18px; text-align: center; }
         .status-stack .badge {
             font-size: 0.7rem;
-            padding: 4px 8px;
+            padding: 2px 6px;
             border-radius: 6px;
             font-weight: 600;
         }
