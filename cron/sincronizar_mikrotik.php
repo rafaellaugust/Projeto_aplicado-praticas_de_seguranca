@@ -14,21 +14,50 @@
 
 require_once __DIR__ . '/../config.php';
 
-// Se acessado via navegador web, exigir token seguro configurado ou sessão administrativa
+// Se acessado via navegador web / HTTP externo, exigir token seguro configurado ou sessão administrativa
 if (PHP_SAPI !== 'cli') {
     $tokenInformado = $_GET['key'] ?? ($_GET['token'] ?? '');
+
+    // Suporte também a Bearer token via Header HTTP Authorization
+    $authHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
+    if (empty($authHeader) && function_exists('apache_request_headers')) {
+        $hdrs = apache_request_headers();
+        $authHeader = $hdrs['Authorization'] ?? '';
+    }
+    $bearerToken = trim(str_replace('Bearer ', '', $authHeader));
+    $tokenChecar = !empty($tokenInformado) ? $tokenInformado : $bearerToken;
+
     $cronSecret = getenv('CRON_TOKEN') ?: '';
-    
+
+    // Busca o wa_token do banco para manter o mesmo padrão de segurança dos outros crons
+    $waToken = '';
+    try {
+        if (class_exists('Database')) {
+            $dbCheck = Database::getInstance();
+            $waToken = $dbCheck->query("SELECT wa_token FROM configuracoes WHERE id = 1")->fetchColumn() ?: '';
+        }
+    } catch (\Throwable $e) {}
+
     $autorizado = false;
-    if (!empty($cronSecret) && hash_equals($cronSecret, $tokenInformado)) {
-        $autorizado = true;
-    } elseif (!empty($_SESSION['admin_id'])) {
+    if (!empty($tokenChecar)) {
+        if (!empty($cronSecret) && hash_equals($cronSecret, $tokenChecar)) {
+            $autorizado = true;
+        } elseif (!empty($waToken) && hash_equals($waToken, $tokenChecar)) {
+            $autorizado = true;
+        }
+    }
+
+    if (!$autorizado && !empty($_SESSION['admin_id'])) {
         $autorizado = true;
     }
 
     if (!$autorizado) {
         http_response_code(403);
-        die(json_encode(['error' => 'Acesso não autorizado à sincronização MikroTik.']));
+        header('Content-Type: application/json; charset=utf-8');
+        die(json_encode([
+            'status' => 'error',
+            'error'  => 'Acesso não autorizado à sincronização MikroTik. Informe o token correto via URL (?key=...) ou header Authorization: Bearer.'
+        ], JSON_UNESCAPED_UNICODE));
     }
     header('Content-Type: application/json; charset=utf-8');
 }
