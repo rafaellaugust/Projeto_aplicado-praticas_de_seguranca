@@ -24,16 +24,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $sincronizarMikrotik = isset($_POST['sincronizar_mikrotik']) ? 1 : 0;
 
     if ($nome && $cpfCnpj && $whatsapp && $pppoeUsuario) {
-        try {
-            $senhaHash = !empty($senhaPortal) ? password_hash($senhaPortal, PASSWORD_DEFAULT) : null;
-            $primeiroAcesso = !empty($senhaPortal) ? 0 : 1;
+        // Validação: proibir cadastro com mesmo usuário PPPoE duplicado
+        $stmtCheckExist = $db->prepare("SELECT id FROM clientes WHERE pppoe_usuario = ? LIMIT 1");
+        $stmtCheckExist->execute([$pppoeUsuario]);
+        if ($stmtCheckExist->fetchColumn()) {
+            $msgError = "Já existe um cliente cadastrado com o usuário PPPoE '{$pppoeUsuario}'.";
+        } else {
+            try {
+                $senhaHash = !empty($senhaPortal) ? password_hash($senhaPortal, PASSWORD_DEFAULT) : null;
+                $primeiroAcesso = !empty($senhaPortal) ? 0 : 1;
 
-            $stmt = $db->prepare("
-                INSERT INTO clientes (nome, cpf_cnpj, whatsapp, email, endereco, pppoe_usuario, pppoe_senha, senha, primeiro_acesso, plano_id, vencimento_dia, sincronizado_mikrotik) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ");
-            $stmt->execute([$nome, $cpfCnpj, $whatsapp, $email, $endereco, $pppoeUsuario, $pppoeSenha, $senhaHash, $primeiroAcesso, $planoId, $vencimentoDia, $sincronizarMikrotik]);
-            $clienteId = $db->lastInsertId();
+                $stmt = $db->prepare("
+                    INSERT INTO clientes (nome, cpf_cnpj, whatsapp, email, endereco, pppoe_usuario, pppoe_senha, senha, primeiro_acesso, plano_id, vencimento_dia, sincronizado_mikrotik) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ");
+                $stmt->execute([$nome, $cpfCnpj, $whatsapp, $email, $endereco, $pppoeUsuario, $pppoeSenha, $senhaHash, $primeiroAcesso, $planoId, $vencimentoDia, $sincronizarMikrotik]);
+                $clienteId = $db->lastInsertId();
 
             if ($sincronizarMikrotik && $planoId) {
                 $stmtP = $db->prepare("SELECT profile_mikrotik FROM planos WHERE id = ?");
@@ -46,8 +52,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             }
 
             $msgSuccess = "Cliente {$nome} cadastrado com sucesso!";
-        } catch (Exception $e) {
-            $msgError = "Erro ao cadastrar cliente: " . $e->getMessage();
+            } catch (Exception $e) {
+                $msgError = "Erro ao cadastrar cliente: " . $e->getMessage();
+            }
         }
     } else {
         $msgError = "Preencha todos os campos obrigatórios.";

@@ -56,7 +56,8 @@ CREATE TABLE IF NOT EXISTS `clientes` (
   `data_expiracao` date DEFAULT NULL,
   `sincronizado_mikrotik` tinyint(1) DEFAULT 0,
   `criado_em` datetime DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_pppoe_usuario` (`pppoe_usuario`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ========================================
