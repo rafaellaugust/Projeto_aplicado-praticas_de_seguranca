@@ -183,7 +183,7 @@ CREATE TABLE IF NOT EXISTS `mikrotik_payment_history` (
   `valor` decimal(10,2) DEFAULT 0.00,
   `data_atualizacao` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  KEY `idx_cliente_periodo` (`cliente_id`, `ano`, `mes`)
+  UNIQUE KEY `idx_cliente_periodo` (`cliente_id`, `ano`, `mes`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ========================================

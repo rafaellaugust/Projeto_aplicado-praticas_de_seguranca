@@ -45,17 +45,34 @@ if(isset($_GET['action']) && $_GET['action']==='sincronizar_mikrotik'){
             elseif(strpos($lower,'aviso')!==false) $statusHistory='warning';
             elseif(strpos($lower,'/pago')!==false || substr($lower,-5)==='/pago') $statusHistory='paid';
             elseif(strpos($lower,'espera')!==false) $statusHistory='paid';
-            // Atualiza histórico
-            $db->prepare("INSERT INTO mikrotik_payment_history (cliente_id, ano, mes, status) VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE status=VALUES(status)")->execute([$cli['id'],$anoAtual,$mesAtual,$statusHistory]);
+            $valorP=(float)($cli['plano_valor']??0);
+            // Atualiza histórico com salvaguarda
+            $stmtHist=$db->prepare("SELECT id FROM mikrotik_payment_history WHERE cliente_id=? AND ano=? AND mes=? LIMIT 1");
+            $stmtHist->execute([$cli['id'],$anoAtual,$mesAtual]);
+            $histId=$stmtHist->fetchColumn();
+            if($histId){
+                $db->prepare("UPDATE mikrotik_payment_history SET status=?, valor=?, data_atualizacao=NOW() WHERE id=?")->execute([$statusHistory,$valorP,$histId]);
+            } else {
+                $db->prepare("INSERT INTO mikrotik_payment_history (cliente_id, ano, mes, status, valor, data_atualizacao) VALUES (?,?,?,?,?,NOW()) ON DUPLICATE KEY UPDATE status=VALUES(status), valor=VALUES(valor), data_atualizacao=NOW()")->execute([$cli['id'],$anoAtual,$mesAtual,$statusHistory,$valorP]);
+            }
+            // Sincroniza status do cliente
+            $novoStatusCli='ativo';
+            if($statusHistory==='overdue') $novoStatusCli='suspenso';
+            elseif($statusHistory==='warning') $novoStatusCli='aviso';
+            $db->prepare("UPDATE clientes SET status=? WHERE id=?")->execute([$novoStatusCli,$cli['id']]);
+
             // Cria fatura se cliente em aviso/overdue e não tem fatura do mês
             if($statusHistory==='warning' || $statusHistory==='overdue'){
-                $stmtFat=$db->prepare("SELECT id FROM faturas WHERE cliente_id=? AND YEAR(data_vencimento)=? AND MONTH(data_vencimento)=? LIMIT 1");
+                $stmtFat=$db->prepare("SELECT id, status FROM faturas WHERE cliente_id=? AND YEAR(data_vencimento)=? AND MONTH(data_vencimento)=? LIMIT 1");
                 $stmtFat->execute([$cli['id'],$anoAtual,$mesAtual]);
-                if(!$stmtFat->fetchColumn()){
-                    $diaVenc=(int)($cli['vencimento_dia']??10); $valorP=(float)($cli['plano_valor']??0);
+                $fatExistente=$stmtFat->fetch();
+                if(!$fatExistente){
+                    $diaVenc=(int)($cli['vencimento_dia']??10);
                     $dataVenc=date('Y-m-d', mktime(0,0,0,$mesAtual,$diaVenc,$anoAtual));
                     $stFat=($statusHistory==='overdue')?'atrasado':'pendente';
                     try { $db->prepare("INSERT INTO faturas (cliente_id, plano_id, valor, data_vencimento, status, descricao, meses_cobertos) VALUES (?,?,?,?,?,?,1)")->execute([$cli['id'],$cli['plano_id'],$valorP,$dataVenc,$stFat,'Mensalidade '.date('m/Y')]); $faturasCriadas++; } catch(Exception $e){}
+                } elseif($statusHistory==='overdue' && $fatExistente['status']==='pendente'){
+                    $db->prepare("UPDATE faturas SET status='atrasado' WHERE id=?")->execute([$fatExistente['id']]);
                 }
             }
             $sincronizados++;

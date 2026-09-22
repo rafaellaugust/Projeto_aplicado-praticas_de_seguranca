@@ -114,16 +114,40 @@ try {
                 $statusHistory = 'paid';
             }
 
-            // Atualiza histórico
-            $db->prepare("INSERT INTO mikrotik_payment_history (cliente_id, ano, mes, status) VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE status=VALUES(status)")->execute([$cli['id'], $anoAtual, $mesAtual, $statusHistory]);
+            $valorP = (float)($cli['plano_valor'] ?? 0);
+
+            // Verifica se já existe registro no histórico para este cliente neste ano/mês
+            $stmtHist = $db->prepare("SELECT id FROM mikrotik_payment_history WHERE cliente_id = ? AND ano = ? AND mes = ? LIMIT 1");
+            $stmtHist->execute([$cli['id'], $anoAtual, $mesAtual]);
+            $histId = $stmtHist->fetchColumn();
+
+            if ($histId) {
+                // Registro existente: apenas atualiza o status, valor e timestamp (NUNCA duplica)
+                $db->prepare("UPDATE mikrotik_payment_history SET status = ?, valor = ?, data_atualizacao = NOW() WHERE id = ?")
+                   ->execute([$statusHistory, $valorP, $histId]);
+            } else {
+                // Novo registro: insere com salvaguarda ON DUPLICATE KEY
+                $db->prepare("INSERT INTO mikrotik_payment_history (cliente_id, ano, mes, status, valor, data_atualizacao) VALUES (?, ?, ?, ?, ?, NOW()) ON DUPLICATE KEY UPDATE status = VALUES(status), valor = VALUES(valor), data_atualizacao = NOW()")
+                   ->execute([$cli['id'], $anoAtual, $mesAtual, $statusHistory, $valorP]);
+            }
+
+            // Atualiza status operacional do cliente na tabela clientes
+            $novoStatusCli = 'ativo';
+            if ($statusHistory === 'overdue') {
+                $novoStatusCli = 'suspenso';
+            } elseif ($statusHistory === 'warning') {
+                $novoStatusCli = 'aviso';
+            }
+            $db->prepare("UPDATE clientes SET status = ? WHERE id = ?")->execute([$novoStatusCli, $cli['id']]);
 
             // Cria fatura se cliente em aviso/overdue e não tem fatura do mês
             if ($statusHistory === 'warning' || $statusHistory === 'overdue') {
-                $stmtFat = $db->prepare("SELECT id FROM faturas WHERE cliente_id=? AND YEAR(data_vencimento)=? AND MONTH(data_vencimento)=? LIMIT 1");
+                $stmtFat = $db->prepare("SELECT id, status FROM faturas WHERE cliente_id=? AND YEAR(data_vencimento)=? AND MONTH(data_vencimento)=? LIMIT 1");
                 $stmtFat->execute([$cli['id'], $anoAtual, $mesAtual]);
-                if (!$stmtFat->fetchColumn()) {
+                $fatExistente = $stmtFat->fetch();
+
+                if (!$fatExistente) {
                     $diaVenc = (int)($cli['vencimento_dia'] ?? 10);
-                    $valorP = (float)($cli['plano_valor'] ?? 0);
                     $dataVenc = date('Y-m-d', mktime(0, 0, 0, $mesAtual, $diaVenc, $anoAtual));
                     $stFat = ($statusHistory === 'overdue') ? 'atrasado' : 'pendente';
                     try {
@@ -132,6 +156,9 @@ try {
                     } catch (Exception $e) {
                         logSync("Erro ao criar fatura para {$user}: " . $e->getMessage());
                     }
+                } elseif ($statusHistory === 'overdue' && $fatExistente['status'] === 'pendente') {
+                    // Atualiza fatura para atrasado se cliente foi bloqueado no MikroTik
+                    $db->prepare("UPDATE faturas SET status = 'atrasado' WHERE id = ?")->execute([$fatExistente['id']]);
                 }
             }
             $resultado['clientes_sincronizados']++;
