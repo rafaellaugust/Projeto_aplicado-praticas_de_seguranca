@@ -80,6 +80,7 @@ jobs:
             
             # Pull das alterações
             echo "🔄 Atualizando código..."
+            git config --global --add safe.directory "$TARGET_DIR" 2>/dev/null || true
             git fetch origin main
             git reset --hard origin/main
             
