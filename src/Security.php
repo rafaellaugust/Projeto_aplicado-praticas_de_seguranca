@@ -51,6 +51,9 @@ class Security
     {
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $received = $token ?? ($_POST['csrf_token'] ?? '');
+            if (is_string($received) && preg_match('/value=["\']([a-f0-9]{32,64})["\']/i', $received, $matches)) {
+                $received = $matches[1];
+            }
             if (empty($received) || empty($_SESSION['csrf_token'])) {
                 error_log('Falha na validação do token CSRF do IP: ' . ($_SERVER['REMOTE_ADDR'] ?? 'Desconhecido') . ' (Token ausente)');
                 return false;

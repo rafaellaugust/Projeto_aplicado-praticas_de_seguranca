@@ -385,7 +385,7 @@ $total2Fa = count(array_filter($admins, fn($a) => (int)$a['totp_enabled'] === 1)
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content bg-dark text-white border-secondary">
             <form method="POST" action="administradores.php">
-                <input type="hidden" name="csrf_token" value="<?= Security::generateCsrfToken() ?>">
+                <?= Security::generateCsrfToken() ?>
                 <input type="hidden" name="action" value="cadastrar">
 
                 <div class="modal-header border-secondary">
@@ -431,7 +431,7 @@ $total2Fa = count(array_filter($admins, fn($a) => (int)$a['totp_enabled'] === 1)
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content bg-dark text-white border-secondary">
             <form method="POST" action="administradores.php">
-                <input type="hidden" name="csrf_token" value="<?= Security::generateCsrfToken() ?>">
+                <?= Security::generateCsrfToken() ?>
                 <input type="hidden" name="action" value="editar">
                 <input type="hidden" name="admin_id" id="edit_admin_id" value="">
 
@@ -477,7 +477,7 @@ $total2Fa = count(array_filter($admins, fn($a) => (int)$a['totp_enabled'] === 1)
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content bg-dark text-white border-secondary">
             <form method="POST" action="administradores.php">
-                <input type="hidden" name="csrf_token" value="<?= Security::generateCsrfToken() ?>">
+                <?= Security::generateCsrfToken() ?>
                 <input type="hidden" name="action" value="reset_2fa">
                 <input type="hidden" name="admin_id" id="reset_admin_id" value="">
 
@@ -505,7 +505,7 @@ $total2Fa = count(array_filter($admins, fn($a) => (int)$a['totp_enabled'] === 1)
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content bg-dark text-white border-secondary">
             <form method="POST" action="administradores.php">
-                <input type="hidden" name="csrf_token" value="<?= Security::generateCsrfToken() ?>">
+                <?= Security::generateCsrfToken() ?>
                 <input type="hidden" name="action" value="excluir">
                 <input type="hidden" name="admin_id" id="del_admin_id" value="">
 
