@@ -34,7 +34,7 @@ A aplicação desenvolvida deverá ser hospedada em um ambiente de nuvem públic
 * **Sistema Operacional:** O sistema operacional utilizado no(a) servidor/VM/instância deverá ser obrigatoriamente **Ubuntu Server** ou **Debian**, em suas últimas versões estáveis disponíveis.
 * **Responsabilidade e Operação:** Todas as etapas de criação e configuração do(a) servidor/VM/instância ficarão a cargo do aluno. Essas etapas farão parte direta da avaliação, cujo objetivo será comprovar a capacidade do aluno de conhecer e operar a console de um provedor de *cloud computing*.
 * **Servidor Web:** O uso de Nginx ou Apache como Web Server será obrigatório.
-* **Disponibilidade:** A aplicação web deverá estar acessível publicamente via internet por meio de um IP público (não será exigido domínio).
+* **Disponibilidade:** A aplicação Web deverá estar acessível publicamente via internet por meio de um IP público (não será exigido domínio).
 
 ### 🛡️ Requisitos de Segurança (Critério de Aprovação - *Metas mínimas obrigatórias a serem alcançadas*)
 
@@ -42,7 +42,7 @@ A aplicação desenvolvida deverá ser hospedada em um ambiente de nuvem públic
 * **Firewall / Security Groups (Least Privilege):** A infraestrutura deverá expor **apenas** as portas estritamente necessárias para o funcionamento da aplicação (ex: 80 para HTTP ou 443 para HTTPS). A porta de gerência 22 do SSH deverá estar sob a proteção de Fail2Ban com tolerância de 4 erros e banimento por 24 horas.
 * **Criptografia e Certificado (HTTPS):**
 * A configuração de HTTPS via Certbot (versão 5.4 ou superior) com suporte a emissão de certificados SSL/TLS para endereços IP públicos diretamente pela [Let's Encrypt](https://letsencrypt.org/2026/01/15/6day-and-ip-general-availability) deverá ser realizada. Deverá ser utilizada a opção de autorrenovação (automática), se disponível.
-* O servidor web (Nginx ou Apache) deverá ser configurado para realizar o **redirecionamento automático** de todo o tráfego HTTP para HTTPS.
+* O servidor Web (Nginx ou Apache) deverá ser configurado para realizar o **redirecionamento automático** de todo o tráfego HTTP para HTTPS.
 * Para o caso de uso de IP como endereço de acesso: A configuração SSL/TLS do servidor deverá ser submetida ao teste [SSL.org - SSL Certificate Checker](https://www.ssl.org/), devendo obrigatoriamente possuir **Certificate Trusted: YES e Algorithm / Key Type & Size: Good signature · Acceptable key** e apresentar o suporte a PQC (Post-Quantum Cryptography) ativado por meio de um segundo teste [Digicert - TLS quantum readiness check](https://www.digicert.com/pqc-checker).
 * Para o caso de uso de domínio como endereço de acesso: A configuração SSL/TLS do servidor deverá ser submetida ao teste [Qualys SSL Labs - SSL Server Test](https://www.ssllabs.com/ssltest/), devendo obrigatoriamente obter **nota A** e apresentar o suporte a PQC ativado (*This server supports PQC (Post-Quantum Cryptography) key exchange*).
 
@@ -74,7 +74,7 @@ O foco deste eixo é a aplicação prática de *Secure by Design*, sem a sobreca
 * **Pilha Tecnológica Livre:** O aluno terá total liberdade de escolha. Poderá utilizar JavaScript, Java, Python, HTML/CSS, Angular, React ou qualquer outra linguagem/framework. Soluções desenvolvidas apenas no Front-end serão plenamente aceitas.
 * **Codificação Assistida por IA:** As ações de desenvolvimento deverão obrigatoriamente utilizar inteligência artificial para a escrita e auditoria do código. O ambiente de desenvolvimento (IDE) indicado para este fim é o [Google Antigravity](https://antigravity.google/product/antigravity-ide/).
 * **Responsabilidade e Operação:** A correta instalação, configuração inicial e operação da ferramenta IDE Antigravity (ou ambiente similar baseado em IA) ficarão a cargo do aluno. O domínio na interação com o assistente inteligente para a geração de código seguro, depuração e refatoração fará parte da avaliação, simulando o fluxo de trabalho moderno de um desenvolvedor no mercado.
-* **Estrutura Mínima Exigida:** O protótipo web deverá obrigatoriamente possuir:
+* **Estrutura Mínima Exigida:** O protótipo Web deverá obrigatoriamente possuir:
 * Uma tela de Login.
 * Uma página interna (acessível apenas após autenticação).
 * Um botão de Logout funcional.
@@ -127,10 +127,10 @@ A criação, configuração e validação da pipeline no GitHub Actions ficarão
 
 Antes de submeter o projeto, verifique se:
 
-* [ ] A aplicação web está no ar e acessível por um IP público (Eixo 1).
+* [ ] A aplicação Web está no ar e acessível por um IP público (Eixo 1).
 * [ ] O Web Server (Nginx ou Apache) está configurado com HTTPS (Certbot/Let's Encrypt) e redireciona o tráfego HTTP para HTTPS automaticamente (Eixo 1).
 * [ ] Os testes de TLS/SSL retornaram *Conformidade* ou *Nota A* (dependendo se IP ou domínio), com a devida ativação de PQC (Eixo 1).
-* [ ] O acesso à nuvem utiliza boas práticas (uso de chave SSH e Fail2Ban configurado para a porta 22) (Eixo 1).
+* [ ] O acesso à nuvem utiliza as seguintes boas práticas: uso de chave SSH e Fail2Ban configurado para a porta 22 (Eixo 1).
 * [ ] O código está versionado em um repositório público no GitHub e a conta está devidamente configurada (Eixo 2).
 * [ ] O `.gitignore` está configurado e não há chaves/senhas expostas no código (Eixo 2).
 * [ ] A aplicação possui Login, Página Interna e Logout, e foi desenvolvida com o auxílio de IA via IDE Antigravity ou equivalente (Eixo 3).

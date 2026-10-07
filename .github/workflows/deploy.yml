@@ -24,15 +24,28 @@ jobs:
 
       - name: Verificar arquivos sensíveis
         run: |
-          echo "🔍 Verificando arquivos sensíveis..."
-          SENSITIVE_FILES=(".env" "*.sql" "*.log")
-          for pattern in "${SENSITIVE_FILES[@]}"; do
-            if git ls-files | grep -q "$pattern"; then
-              echo "❌ ALERTA: Arquivo sensível encontrado no repositório: $pattern"
-              exit 1
-            fi
-          done
-          echo "✅ Nenhum arquivo sensível no repositório."
+          echo "🔍 Verificando arquivos sensíveis no repositório..."
+          # 1. Bloqueia qualquer arquivo .env
+          if git ls-files | grep -E '(^|/)\.env$'; then
+            echo "❌ ALERTA: Arquivo de ambiente .env encontrado no repositório!"
+            exit 1
+          fi
+          # 2. Bloqueia dumps SQL fora do diretório de migrações estruturais
+          if git ls-files | grep -v '^migrations/' | grep -E '\.sql$'; then
+            echo "❌ ALERTA: Dump SQL sensível fora de migrations encontrado no repositório!"
+            exit 1
+          fi
+          # 3. Bloqueia arquivos de log
+          if git ls-files | grep -E '\.log$'; then
+            echo "❌ ALERTA: Arquivo de log encontrado no repositório!"
+            exit 1
+          fi
+          # 4. Bloqueia chaves privadas ou backups compactados
+          if git ls-files | grep -E '\.(pem|key|id_rsa|zip|tar|gz)$'; then
+            echo "❌ ALERTA: Chave privada ou arquivo compactado encontrado no repositório!"
+            exit 1
+          fi
+          echo "✅ Nenhum arquivo sensível ou credencial exposta no repositório."
 
   # Deploy para o servidor de produção
   deploy:
@@ -51,27 +64,40 @@ jobs:
           port: ${{ secrets.SERVER_PORT || 22 }}
           script: |
             echo "📦 Iniciando deploy..."
-            cd /var/www/html/aplicacao
+            if [ -d "/var/www/html/.git" ]; then
+              TARGET_DIR="/var/www/html"
+            elif [ -d "/var/www/html/aplicacao/.git" ]; then
+              TARGET_DIR="/var/www/html/aplicacao"
+            else
+              TARGET_DIR="/var/www/html"
+            fi
+            echo "📁 Diretório alvo: $TARGET_DIR"
+            cd "$TARGET_DIR"
             
             # Backup antes do deploy
             echo "💾 Criando backup..."
-            sudo cp -r . ../aplicacao_backup_$(date +%Y%m%d_%H%M%S) 2>/dev/null || true
+            sudo cp -r . ../backup_deploy_$(date +%Y%m%d_%H%M%S) 2>/dev/null || true
             
             # Pull das alterações
             echo "🔄 Atualizando código..."
             git fetch origin main
             git reset --hard origin/main
             
+            # Limpeza preventiva de dumps acidentais na raiz da VM
+            echo "🧹 Removendo resquícios de arquivos sensíveis na VM..."
+            sudo rm -f *.sql "spaconet_aplicacao*.sql" "corrigir_banco*.sql" "banco_dados*.sql" "schema-only.sql" 2>/dev/null || true
+            
             # Garantir permissões corretas
             echo "🔒 Configurando permissões..."
             sudo chown -R www-data:www-data .
             sudo chmod -R 750 .
-            sudo chmod 640 .env
-            sudo chmod -R 770 log/
-            sudo chmod -R 770 backups/
+            [ -f .env ] && sudo chmod 640 .env || true
+            [ -d log ] && sudo chmod -R 770 log/ || true
+            [ -d backups ] && sudo chmod -R 770 backups/ || true
             
-            # Restart do PHP-FPM
-            echo "🔄 Reiniciando PHP-FPM..."
+            # Restart/Reload dos serviços
+            echo "🔄 Recarregando serviços web..."
+            sudo systemctl reload apache2 || sudo systemctl reload nginx || true
             sudo systemctl reload php8.1-fpm || sudo systemctl reload php8.3-fpm || true
             
             echo "✅ Deploy concluído com sucesso!"

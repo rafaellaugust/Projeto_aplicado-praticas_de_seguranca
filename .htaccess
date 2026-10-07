@@ -16,11 +16,11 @@ AddDefaultCharset UTF-8
     RewriteEngine On
     RewriteBase /
 
-    # 1. Proteger arquivos confidenciais e dotfiles
-    RewriteRule ^(\.git|\.env|composer\.|package\.|config\.php|schema.*\.sql|.*\.log) - [F,L,NC]
+    # 1. Proteger arquivos confidenciais, dotfiles, scripts SQL, backups, configs e documentação
+    RewriteRule ^(\.git|\.env|composer\.|package\.|config\.php|.*\.sql|.*\.log|.*\.zip|.*\.gz|.*\.tar|.*\.bak|.*\.md) - [F,L,NC]
 
-    # 2. Impedir listagem ou acesso direto aos includes que não são páginas
-    RewriteRule ^src/ - [F,L,NC]
+    # 2. Impedir listagem ou acesso direto aos includes e diretórios de infraestrutura interna
+    RewriteRule ^(src|migrations|docs|backups|whatsapp-api)/ - [F,L,NC]
     RewriteRule ^(admin|cliente)/header\.php$ - [F,L,NC]
     RewriteRule ^(admin|cliente)/footer\.php$ - [F,L,NC]
 
@@ -64,6 +64,8 @@ AddDefaultCharset UTF-8
 # Proteções adicionais contra injeção e acessos maliciosos
 <IfModule mod_headers.c>
     Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
     Header always set X-XSS-Protection "1; mode=block"
     Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set Permissions-Policy "geolocation=(), microphone=(), camera=()"
 </IfModule>
