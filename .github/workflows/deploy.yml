@@ -90,8 +90,8 @@ jobs:
             
             # Garantir permissões corretas
             echo "🔒 Configurando permissões..."
-            sudo chown -R www-data:www-data /var/www/html
-            sudo chmod -R 755 /var/www/html
+            sudo chown -R ubuntu:www-data /var/www/html
+            sudo chmod -R 775 /var/www/html
             [ -f /var/www/html/.env ] && sudo chmod 640 /var/www/html/.env || true
             [ -d /var/www/html/log ] && sudo chmod -R 770 /var/www/html/log/ || true
             [ -d /var/www/html/backups ] && sudo chmod -R 770 /var/www/html/backups/ || true
