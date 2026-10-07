@@ -89,11 +89,14 @@ jobs:
             
             # Garantir permissões corretas
             echo "🔒 Configurando permissões..."
-            sudo chown -R www-data:www-data .
-            sudo chmod -R 750 .
-            [ -f .env ] && sudo chmod 640 .env || true
-            [ -d log ] && sudo chmod -R 770 log/ || true
-            [ -d backups ] && sudo chmod -R 770 backups/ || true
+            sudo chown -R www-data:www-data /var/www/html
+            sudo chmod -R 755 /var/www/html
+            [ -f /var/www/html/.env ] && sudo chmod 640 /var/www/html/.env || true
+            [ -d /var/www/html/log ] && sudo chmod -R 770 /var/www/html/log/ || true
+            [ -d /var/www/html/backups ] && sudo chmod -R 770 /var/www/html/backups/ || true
+            sudo chown -R ubuntu:ubuntu /home/ubuntu/.ssh
+            sudo chmod 700 /home/ubuntu/.ssh
+            sudo chmod 600 /home/ubuntu/.ssh/authorized_keys
             
             # Restart/Reload dos serviços
             echo "🔄 Recarregando serviços web..."
