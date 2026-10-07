@@ -60,7 +60,7 @@ jobs:
         with:
           host: ${{ secrets.SERVER_HOST || '100.63.31.242' }}
           username: ${{ secrets.SERVER_USER || 'ubuntu' }}
-          key: ${{ secrets.SSH_PRIVATE_KEY || secrets.AWSPROJETO }}
+          key: ${{ secrets.SSH_PRIVATE_KEY || secrets.AWSPROJETO || secrets.AWSPROJETONOVA }}
           port: ${{ secrets.SERVER_PORT || 22 }}
           script: |
             echo "📦 Iniciando deploy..."
