@@ -112,6 +112,7 @@ $mikrotikOnline = $mikrotikApi->testConnection();
                 <li class="nav-item"><a class="nav-link text-light fw-medium" href="configuracoes.php"><i class="fa-solid fa-sliders me-1 text-info"></i> Config</a></li>
                 <li class="nav-item"><a class="nav-link text-light fw-medium" href="logs.php"><i class="fa-solid fa-clipboard-list me-1 text-warning"></i> Logs</a></li>
                 <li class="nav-item"><a class="nav-link text-light fw-medium" href="seguranca.php"><i class="fa-solid fa-shield-halved me-1 text-danger"></i> Segurança</a></li>
+                <li class="nav-item"><a class="nav-link text-light fw-medium" href="administradores.php"><i class="fa-solid fa-users-gear me-1 text-primary"></i> Admins</a></li>
              </ul>
 
             <div class="d-flex align-items-center gap-3 ms-xl-3">
@@ -133,6 +134,7 @@ $mikrotikOnline = $mikrotikApi->testConnection();
                         <li><h6 class="dropdown-header text-white"><i class="fa-solid fa-user me-2 text-info"></i><?= sanitize($_SESSION['admin_nome'] ?? 'Administrador') ?></h6><small class="text-secondary px-3 d-block" style="margin-top:-8px; font-size:0.7rem;">Administrador do sistema</small></li>
                         <li><hr class="dropdown-divider"></li>
                         <li><a class="dropdown-item" href="minha-conta.php"><i class="fa-solid fa-user-pen me-2 text-info"></i> Minha Conta</a></li>
+                        <li><a class="dropdown-item" href="administradores.php"><i class="fa-solid fa-users-gear me-2 text-primary"></i> Gerenciar Administradores</a></li>
                         <li><a class="dropdown-item" href="configuracoes.php"><i class="fa-solid fa-gear me-2"></i> Ajustes</a></li>
                         <li><a class="dropdown-item" href="roteadores.php"><i class="fa-solid fa-server me-2"></i> Roteadores</a></li>
                         <li><a class="dropdown-item" href="backup.php"><i class="fa-solid fa-database me-2 text-warning"></i> Backup do Banco (SQL)</a></li>

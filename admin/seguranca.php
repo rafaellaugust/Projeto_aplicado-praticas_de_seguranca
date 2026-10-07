@@ -213,8 +213,9 @@ $s = array_merge([
 
 <!-- Resumo de Segurança -->
 <div class="row g-4 mb-4">
-    <div class="col-12">
+    <div class="col-12 d-flex justify-content-between align-items-center">
         <h6 class="text-white fw-bold mb-0"><i class="fa-solid fa-shield-halved text-info me-2"></i>Resumo de Segurança</h6>
+        <a href="administradores.php" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-users-gear me-1"></i> Gerenciar Administradores</a>
     </div>
 
     <div class="col-md-3">
