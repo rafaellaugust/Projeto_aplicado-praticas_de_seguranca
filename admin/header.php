@@ -112,7 +112,6 @@ $mikrotikOnline = $mikrotikApi->testConnection();
                 <li class="nav-item"><a class="nav-link text-light fw-medium" href="configuracoes.php"><i class="fa-solid fa-sliders me-1 text-info"></i> Config</a></li>
                 <li class="nav-item"><a class="nav-link text-light fw-medium" href="logs.php"><i class="fa-solid fa-clipboard-list me-1 text-warning"></i> Logs</a></li>
                 <li class="nav-item"><a class="nav-link text-light fw-medium" href="seguranca.php"><i class="fa-solid fa-shield-halved me-1 text-danger"></i> Segurança</a></li>
-                <li class="nav-item"><a class="nav-link text-light fw-medium" href="administradores.php"><i class="fa-solid fa-users-gear me-1 text-primary"></i> Admins</a></li>
              </ul>
 
             <div class="d-flex align-items-center gap-3 ms-xl-3">
